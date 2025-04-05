@@ -12,7 +12,7 @@ Once the archive is extracted, the Python script splits the data into training (
 
 The resulting directory structure looks like this:
 
-```
+```plaintext
 data/
 ├── MDC_dataset.tar.gz
 ├── Gen_img/
