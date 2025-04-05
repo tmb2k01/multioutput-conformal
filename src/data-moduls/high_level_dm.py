@@ -52,16 +52,22 @@ class HighLevelDataModule(pl.LightningDataModule):
         self.root_dir = root_dir
         self.batch_size = batch_size
         self.num_workers = num_workers
-
-        self.train_dataset = HighLevelDataset(root_dir=os.path.join(root_dir, "train"))
-        self.val_dataset = HighLevelDataset(root_dir=os.path.join(root_dir, "val"))
-        self.test_dataset = HighLevelDataset(root_dir=os.path.join(root_dir, "test"))
-        self.calib_dataset = HighLevelDataset(root_dir=os.path.join(root_dir, "calib"))
-
+        self.transform = None
         # self.transform = transforms.Compose([transforms.Resize((128, 128))])
 
     def setup(self, stage=None):
-        self.dataset = HighLevelDataset(self.root_dir, transform=self.transform)
+        self.train_dataset = HighLevelDataset(
+            root_dir=os.path.join(self.root_dir, "train"), transform=self.transform
+        )
+        self.val_dataset = HighLevelDataset(
+            root_dir=os.path.join(self.root_dir, "val"), transform=self.transform
+        )
+        self.test_dataset = HighLevelDataset(
+            root_dir=os.path.join(self.root_dir, "test"), transform=self.transform
+        )
+        self.calib_dataset = HighLevelDataset(
+            root_dir=os.path.join(self.root_dir, "calib"), transform=self.transform
+        )
 
     def train_dataloader(self):
         return DataLoader(
