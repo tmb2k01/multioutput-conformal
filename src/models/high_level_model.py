@@ -4,10 +4,10 @@ import torch.nn as nn
 import torchvision.models as models
 
 
-class MultiOutputModel(pl.LightningModule):
+class HighLevelModel(pl.LightningModule):
     def __init__(self, num_classes_color=12, num_classes_type=11, learning_rate=1e-3):
-        super(MultiOutputModel, self).__init__()
-        self.save_hyperparameters(learning_rate=learning_rate)
+        super(HighLevelModel, self).__init__()
+        self.save_hyperparameters()
 
         base_model = models.resnet50(pretrained=True)
         self.feature_extractor = nn.Sequential(*list(base_model.children())[:-1])
@@ -29,6 +29,8 @@ class MultiOutputModel(pl.LightningModule):
     def shared_step(self, batch, stage, accuracy=False):
         x, (y_color, y_type) = batch
         out_color, out_type = self(x)
+        print(f"out_color: {out_color.shape}, out_type: {out_type.shape}")
+        print(f"y_color: {y_color}, y_type: {y_type}")
 
         loss_color = self.loss_fn(out_color, y_color)
         loss_type = self.loss_fn(out_type, y_type)
@@ -43,6 +45,7 @@ class MultiOutputModel(pl.LightningModule):
             acc_type = (out_type.argmax(dim=1) == y_type).float().mean()
             self.log(f"{stage}_acc_color", acc_color)
             self.log(f"{stage}_acc_type", acc_type)
+            self.log(f"{stage}_acc", (acc_color + acc_type) / 2)
 
         return loss
 

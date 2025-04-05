@@ -38,7 +38,7 @@ class HighLevelDataset(Dataset):
         label_path = self.label_path[idx]
         with open(label_path, "r") as f:
             text = f.read().strip()
-            color_class, type_class = (text[0], text[1])
+            color_class, type_class = (int(text[0]), int(text[1]))
 
         if self.transform:
             image = self.transform(image)
@@ -60,7 +60,7 @@ class HighLevelDataModule(pl.LightningDataModule):
             root_dir=os.path.join(self.root_dir, "train"), transform=self.transform
         )
         self.val_dataset = HighLevelDataset(
-            root_dir=os.path.join(self.root_dir, "val"), transform=self.transform
+            root_dir=os.path.join(self.root_dir, "valid"), transform=self.transform
         )
         self.test_dataset = HighLevelDataset(
             root_dir=os.path.join(self.root_dir, "test"), transform=self.transform
