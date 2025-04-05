@@ -9,4 +9,8 @@ if [ ! -f "data/MDC_dataset.tar.gz" ]; then
 fi
 tar -xzf data/MDC_dataset.tar.gz -C data
 
-python3 scripts/prepare-dataset.py
+if command -v python &>/dev/null; then
+    python scripts/prepare-dataset.py
+else
+    python3 scripts/prepare-dataset.py
+fi
