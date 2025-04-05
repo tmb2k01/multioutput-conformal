@@ -38,12 +38,12 @@ class HighLevelDataset(Dataset):
         label_path = self.label_path[idx]
         with open(label_path, "r") as f:
             text = f.read().strip()
-            labels = (text[0], text[1])
+            color_class, type_class = (text[0], text[1])
 
         if self.transform:
             image = self.transform(image)
 
-        return image, labels
+        return image, (color_class, type_class)
 
 
 class HighLevelDataModule(pl.LightningDataModule):
