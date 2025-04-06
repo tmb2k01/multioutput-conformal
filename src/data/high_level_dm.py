@@ -4,6 +4,12 @@ import pytorch_lightning as pl
 import torchvision.transforms.functional as TF
 from PIL import Image
 from torch.utils.data import DataLoader, Dataset
+from torchvision.transforms import (
+    Compose,
+    RandomCrop,
+    RandomHorizontalFlip,
+    RandomVerticalFlip,
+)
 
 
 def list_image_paths(root_dir):
@@ -38,7 +44,7 @@ class HighLevelDataset(Dataset):
         label_path = self.label_path[idx]
         with open(label_path, "r") as f:
             text = f.read().strip()
-            color_class, type_class = (int(text[0]), int(text[1]))
+            color_class, type_class = map(int, text.split())
 
         if self.transform:
             image = self.transform(image)
@@ -52,21 +58,24 @@ class HighLevelDataModule(pl.LightningDataModule):
         self.root_dir = root_dir
         self.batch_size = batch_size
         self.num_workers = num_workers
-        self.transform = None
-        # self.transform = transforms.Compose([transforms.Resize((128, 128))])
 
     def setup(self, stage=None):
         self.train_dataset = HighLevelDataset(
-            root_dir=os.path.join(self.root_dir, "train"), transform=self.transform
+            root_dir=os.path.join(self.root_dir, "train"),
+            transform=Compose(
+                [
+                    RandomVerticalFlip(),
+                ]
+            ),
         )
         self.val_dataset = HighLevelDataset(
-            root_dir=os.path.join(self.root_dir, "valid"), transform=self.transform
+            root_dir=os.path.join(self.root_dir, "valid"),
         )
         self.test_dataset = HighLevelDataset(
-            root_dir=os.path.join(self.root_dir, "test"), transform=self.transform
+            root_dir=os.path.join(self.root_dir, "test"),
         )
         self.calib_dataset = HighLevelDataset(
-            root_dir=os.path.join(self.root_dir, "calib"), transform=self.transform
+            root_dir=os.path.join(self.root_dir, "calib"),
         )
 
     def train_dataloader(self):
