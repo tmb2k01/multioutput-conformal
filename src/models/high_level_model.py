@@ -17,8 +17,6 @@ class HighLevelModel(pl.LightningModule):
             param.requires_grad = False
         in_features = base_model.fc.in_features
 
-        print(in_features)
-
         self.classifier_color = nn.Sequential(
             nn.Linear(in_features, 256),
             nn.ReLU(),
