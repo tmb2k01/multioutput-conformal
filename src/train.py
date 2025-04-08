@@ -1,21 +1,25 @@
 import pytorch_lightning as pl
 import torch
-
 import wandb
+
 from src.data.high_level_dm import HighLevelDataModule
 from src.models.high_level_model import HighLevelModel
 
-COLOR_NUM_CLASSES = 12
-TYPE_NUM_CLASSES = 11
-NUM_CLASSES_LIST = [COLOR_NUM_CLASSES, TYPE_NUM_CLASSES]
+# MDC Dataset properties
+MDC_COLOR = 12
+MDC_TYPE = 11
+MDC_CLASSES_LIST = [MDC_COLOR, MDC_TYPE]
 
 
-def train_high_level_model(filename):
+def train_high_level_model(root_dir, filename, num_classes_list):
     datamodule = HighLevelDataModule(
-        root_dir="data", num_classes_list=NUM_CLASSES_LIST, batch_size=64, num_workers=8
+        root_dir=root_dir,
+        num_classes_list=num_classes_list,
+        batch_size=64,
+        num_workers=8,
     )
     datamodule.setup()
-    model = HighLevelModel(num_classes_list=NUM_CLASSES_LIST)
+    model = HighLevelModel(num_classes_list=num_classes_list)
     wandb_logger = pl.loggers.WandbLogger(
         project=f"{filename}",
     )
@@ -42,4 +46,4 @@ def train_high_level_model(filename):
 def train():
     print(f"Is CUDA available: {torch.cuda.is_available()}")
     wandb.login()
-    train_high_level_model("high-level-model")
+    train_high_level_model("data", "mdc-high-level-model", MDC_CLASSES_LIST)
