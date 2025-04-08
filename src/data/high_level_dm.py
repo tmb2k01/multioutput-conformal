@@ -14,7 +14,7 @@ def list_image_paths(root_dir):
 
 
 class HighLevelDataset(Dataset):
-    def __init__(self, root_dir, num_classes_list, transform=None):
+    def __init__(self, root_dir, task_num_classes, transform=None):
         img_dir = os.path.join(root_dir, "images")
         label_dir = os.path.join(root_dir, "labels")
 
@@ -24,7 +24,7 @@ class HighLevelDataset(Dataset):
 
         self.img_paths = list_image_paths(img_dir)
         self.label_paths = list_image_paths(label_dir)
-        self.num_classes_list = num_classes_list
+        self.task_num_classes = task_num_classes
         self.transform = transform
 
     def __len__(self):
@@ -40,8 +40,10 @@ class HighLevelDataset(Dataset):
             text = f.read().strip()
             labels = list(map(int, text.split()))
 
-        if len(labels) != len(self.num_classes_list):
-            raise ValueError("The number of labels does not match the number of tasks.")
+        if len(labels) != len(self.task_num_classes):
+            raise ValueError(
+                f"The number of labels does not match the number of tasks. Expected {len(self.task_num_classes)} labels, got {len(labels)}."
+            )
 
         if self.transform:
             image = self.transform(image)
@@ -51,10 +53,10 @@ class HighLevelDataset(Dataset):
 
 
 class HighLevelDataModule(pl.LightningDataModule):
-    def __init__(self, root_dir, num_classes_list, batch_size=32, num_workers=4):
+    def __init__(self, root_dir, task_num_classes, batch_size=32, num_workers=4):
         super().__init__()
         self.root_dir = root_dir
-        self.num_classes_list = num_classes_list
+        self.num_classes_list = task_num_classes
         self.batch_size = batch_size
         self.num_workers = num_workers
 
@@ -62,20 +64,20 @@ class HighLevelDataModule(pl.LightningDataModule):
         # Create datasets for different stages (train, val, test, calib)
         self.train_dataset = HighLevelDataset(
             root_dir=os.path.join(self.root_dir, "train"),
-            num_classes_list=self.num_classes_list,
+            task_num_classes=self.num_classes_list,
             transform=Compose([RandomVerticalFlip()]),
         )
         self.val_dataset = HighLevelDataset(
             root_dir=os.path.join(self.root_dir, "valid"),
-            num_classes_list=self.num_classes_list,
+            task_num_classes=self.num_classes_list,
         )
         self.test_dataset = HighLevelDataset(
             root_dir=os.path.join(self.root_dir, "test"),
-            num_classes_list=self.num_classes_list,
+            task_num_classes=self.num_classes_list,
         )
         self.calib_dataset = HighLevelDataset(
             root_dir=os.path.join(self.root_dir, "calib"),
-            num_classes_list=self.num_classes_list,
+            task_num_classes=self.num_classes_list,
         )
 
     def train_dataloader(self):
