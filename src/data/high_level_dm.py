@@ -4,24 +4,17 @@ import pytorch_lightning as pl
 import torchvision.transforms.functional as TF
 from PIL import Image
 from torch.utils.data import DataLoader, Dataset
-from torchvision.transforms import (
-    Compose,
-    RandomCrop,
-    RandomHorizontalFlip,
-    RandomVerticalFlip,
-)
+from torchvision.transforms import Compose, RandomVerticalFlip
 
 
 def list_image_paths(root_dir):
-    img_paths = []
-    for filename in os.listdir(root_dir):
-        img_path = os.path.join(root_dir, filename)
-        img_paths.append(img_path)
-    return img_paths
+    return [
+        os.path.join(root_dir, filename) for filename in sorted(os.listdir(root_dir))
+    ]
 
 
 class HighLevelDataset(Dataset):
-    def __init__(self, root_dir, transform=None):
+    def __init__(self, root_dir, num_classes_list, transform=None):
         img_dir = os.path.join(root_dir, "images")
         label_dir = os.path.join(root_dir, "labels")
 
@@ -30,7 +23,8 @@ class HighLevelDataset(Dataset):
         assert os.path.isdir(img_dir), f"Image directory {img_dir} is not a directory."
 
         self.img_paths = list_image_paths(img_dir)
-        self.label_path = list_image_paths(label_dir)
+        self.label_paths = list_image_paths(label_dir)
+        self.num_classes_list = num_classes_list
         self.transform = transform
 
     def __len__(self):
@@ -41,41 +35,47 @@ class HighLevelDataset(Dataset):
         image = Image.open(img_path).convert("RGB")
         image = TF.to_tensor(image)
 
-        label_path = self.label_path[idx]
+        label_path = self.label_paths[idx]
         with open(label_path, "r") as f:
             text = f.read().strip()
-            color_class, type_class = map(int, text.split())
+            labels = list(map(int, text.split()))
+
+        if len(labels) != len(self.num_classes_list):
+            raise ValueError("The number of labels does not match the number of tasks.")
 
         if self.transform:
             image = self.transform(image)
 
-        return image, (color_class, type_class)
+        # Return the image and a tuple of labels for each task
+        return image, tuple(labels)
 
 
 class HighLevelDataModule(pl.LightningDataModule):
-    def __init__(self, root_dir, batch_size=32, num_workers=4):
+    def __init__(self, root_dir, num_classes_list, batch_size=32, num_workers=4):
         super().__init__()
         self.root_dir = root_dir
+        self.num_classes_list = num_classes_list
         self.batch_size = batch_size
         self.num_workers = num_workers
 
     def setup(self, stage=None):
+        # Create datasets for different stages (train, val, test, calib)
         self.train_dataset = HighLevelDataset(
             root_dir=os.path.join(self.root_dir, "train"),
-            transform=Compose(
-                [
-                    RandomVerticalFlip(),
-                ]
-            ),
+            num_classes_list=self.num_classes_list,
+            transform=Compose([RandomVerticalFlip()]),
         )
         self.val_dataset = HighLevelDataset(
             root_dir=os.path.join(self.root_dir, "valid"),
+            num_classes_list=self.num_classes_list,
         )
         self.test_dataset = HighLevelDataset(
             root_dir=os.path.join(self.root_dir, "test"),
+            num_classes_list=self.num_classes_list,
         )
         self.calib_dataset = HighLevelDataset(
             root_dir=os.path.join(self.root_dir, "calib"),
+            num_classes_list=self.num_classes_list,
         )
 
     def train_dataloader(self):

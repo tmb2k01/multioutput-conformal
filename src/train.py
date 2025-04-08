@@ -5,11 +5,17 @@ import wandb
 from src.data.high_level_dm import HighLevelDataModule
 from src.models.high_level_model import HighLevelModel
 
+COLOR_NUM_CLASSES = 12
+TYPE_NUM_CLASSES = 11
+NUM_CLASSES_LIST = [COLOR_NUM_CLASSES, TYPE_NUM_CLASSES]
+
 
 def train_high_level_model(filename):
-    datamodule = HighLevelDataModule(root_dir="data", batch_size=64, num_workers=8)
+    datamodule = HighLevelDataModule(
+        root_dir="data", num_classes_list=NUM_CLASSES_LIST, batch_size=64, num_workers=8
+    )
     datamodule.setup()
-    model = HighLevelModel()
+    model = HighLevelModel(num_classes_list=NUM_CLASSES_LIST)
     wandb_logger = pl.loggers.WandbLogger(
         project=f"{filename}",
     )

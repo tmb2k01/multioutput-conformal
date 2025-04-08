@@ -7,8 +7,8 @@ import torchvision.models as models
 
 
 class HighLevelModel(pl.LightningModule):
-    def __init__(self, num_classes_color=12, num_classes_type=11, learning_rate=1e-3):
-        super(HighLevelModel, self).__init__()
+    def __init__(self, num_classes_list, learning_rate=1e-3):
+        super().__init__()
         self.save_hyperparameters()
 
         base_model = models.resnet50(weights=models.ResNet50_Weights.DEFAULT)
@@ -17,53 +17,60 @@ class HighLevelModel(pl.LightningModule):
             param.requires_grad = False
         in_features = base_model.fc.in_features
 
-        self.classifier_color = nn.Sequential(
-            nn.Linear(in_features, 256),
-            nn.ReLU(),
-            nn.Dropout(0.2),
-            nn.Linear(256, num_classes_color),
+        # Dynamically create classifier heads
+        self.classifiers = nn.ModuleList(
+            [
+                nn.Sequential(
+                    nn.Linear(in_features, 512),
+                    nn.ReLU(),
+                    nn.Dropout(0.5),
+                    nn.Linear(512, num_classes),
+                )
+                for num_classes in num_classes_list
+            ]
         )
 
-        self.classifier_type = nn.Sequential(
-            nn.Linear(in_features, 256),
-            nn.ReLU(),
-            nn.Dropout(0.2),
-            nn.Linear(256, num_classes_type),
+        # One accuracy metric per task
+        self.accuracies = nn.ModuleList(
+            [
+                torchmetrics.Accuracy(task="multiclass", num_classes=num_classes)
+                for num_classes in num_classes_list
+            ]
         )
 
         self.loss_fn = F.cross_entropy
-        self.accuracy_color = torchmetrics.Accuracy(
-            task="multiclass", num_classes=num_classes_color
-        )
-        self.accuracy_type = torchmetrics.Accuracy(
-            task="multiclass", num_classes=num_classes_type
-        )
 
     def forward(self, x):
         features = self.feature_extractor(x)
         features = torch.flatten(features, 1)
-        out_color = self.classifier_color(features)
-        out_type = self.classifier_type(features)
-        return out_color, out_type
+        outputs = [classifier(features) for classifier in self.classifiers]
+        return outputs
 
     def shared_step(self, batch, stage, accuracy=False):
-        x, (y_color, y_type) = batch
-        out_color, out_type = self(x)
+        x, targets = batch
+        outputs = self(x)
 
-        loss_color = self.loss_fn(out_color, y_color)
-        loss_type = self.loss_fn(out_type, y_type)
-        loss = loss_color + loss_type
-
-        self.log(f"{stage}_loss", loss)
+        losses = [self.loss_fn(out, target) for out, target in zip(outputs, targets)]
+        total_loss = sum(losses)
+        self.log(f"{stage}_loss", total_loss)
 
         if accuracy:
-            acc_color = self.accuracy_color(out_color, y_color)
-            acc_type = self.accuracy_type(out_type, y_type)
-            self.log(f"{stage}_acc_color", acc_color)
-            self.log(f"{stage}_acc_type", acc_type)
-            self.log(f"{stage}_acc", (acc_color + acc_type) / 2)
+            for i, (out, target, acc_metric) in enumerate(
+                zip(outputs, targets, self.accuracies)
+            ):
+                acc = acc_metric(out, target)
+                self.log(f"{stage}_acc_task{i}", acc)
+            avg_acc = sum(
+                [
+                    acc_metric(out, target)
+                    for acc_metric, out, target in zip(
+                        self.accuracies, outputs, targets
+                    )
+                ]
+            ) / len(outputs)
+            self.log(f"{stage}_acc", avg_acc)
 
-        return loss
+        return total_loss
 
     def training_step(self, batch, batch_idx):
         return self.shared_step(batch, "train")
