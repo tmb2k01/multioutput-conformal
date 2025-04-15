@@ -82,7 +82,7 @@ class LowLevelModel(pl.LightningModule):
         output = self.classifier(features)
         return output
 
-    def transform_targets(self, targets):
+    def encode_targets(self, targets):
         """
         Transforms multi-task targets into a single joint class ID.
 
@@ -97,6 +97,27 @@ class LowLevelModel(pl.LightningModule):
         target = (targets * self.multipliers).sum(dim=1).long()
         return target
 
+    def decode_targets(self, joint_class):
+        """
+        Decodes joint class IDs into separate task-specific labels using modular arithmetic.
+
+        Args:
+            joint_class (ndarray): A scalar or NumPy array containing encoded class indices.
+
+        Returns:
+            Tensor: A 2D tensor of shape (N, num_tasks), where N is the number of samples.
+        """
+        if joint_class.ndim == 0:
+            joint_class = np.array([joint_class])
+
+        labels = []
+        for num_classes in reversed(self.task_num_classes):
+            labels.append(joint_class % num_classes)
+            joint_class = joint_class // num_classes
+
+        stacked = np.stack(labels[::-1], axis=-1)
+        return [stacked[:, i] for i in range(stacked.shape[1])]
+
     def shared_step(self, batch, stage, accuracy=False):
         """
         Shared logic for training/validation.
@@ -110,7 +131,7 @@ class LowLevelModel(pl.LightningModule):
             Tensor: Loss value.
         """
         x, targets = batch
-        target = self.transform_targets(targets)
+        target = self.encode_targets(targets)
         output = self(x)
         loss = self.loss_fn(output, target)
         self.log(f"{stage}_loss", loss)
@@ -132,28 +153,66 @@ class LowLevelModel(pl.LightningModule):
         Stores true and predicted labels for evaluation after test epoch.
         """
         x, targets = batch
-        target = self.transform_targets(targets)
         y_pred = self(x)
-        pred_labels = torch.argmax(y_pred, dim=1).cpu().numpy()
-        self.test_step_outputs.append((target.cpu().numpy(), pred_labels))
-        return target, pred_labels
+
+        true_labels = [target.cpu().numpy() for target in targets]
+        pred_labels = np.argmax(y_pred.cpu().numpy(), axis=1)
+
+        pred_labels = self.decode_targets(pred_labels)
+        self.test_step_outputs.append((true_labels, pred_labels))
+        return true_labels, pred_labels
 
     def on_test_epoch_end(self):
         """
-        Calculates and logs metrics at the end of the test epoch.
+        Called at the end of the test epoch. Computes and logs per-task metrics,
+        as well as aggregate metrics over all tasks.
         """
         outputs = self.test_step_outputs
-        true_labels = np.concatenate([out[0] for out in outputs])
-        pred_labels = np.concatenate([out[1] for out in outputs])
 
-        accuracy = accuracy_score(true_labels, pred_labels)
-        f1 = f1_score(true_labels, pred_labels, average="weighted")
+        # Group by task across batches
+        true_labels = list(
+            zip(*[out[0] for out in outputs])
+        )  # List of length T, each of shape (B,)
+        pred_labels = list(zip(*[out[1] for out in outputs]))
 
-        self.log("test_accuracy", accuracy)
-        self.log("test_f1", f1)
+        task_accuracies = []
+        all_true = []
+        all_pred = []
 
-        print(f"Accuracy: {accuracy:.2f}")
-        print(f"F1 Score: {f1:.2f}")
+        for i, (y_true, y_pred) in enumerate(zip(true_labels, pred_labels)):
+            y_true = np.concatenate(y_true)
+            y_pred = np.concatenate(y_pred)
+
+            all_true.append(y_true)
+            all_pred.append(y_pred)
+
+            accuracy = accuracy_score(y_true, y_pred)
+            f1 = f1_score(y_true, y_pred, average="weighted")
+            conf_matrix = confusion_matrix(y_true, y_pred)
+            conf_acc = np.trace(conf_matrix) / np.sum(conf_matrix)
+
+            task_accuracies.append(accuracy)
+
+            self.log(f"test_task_{i}_accuracy", accuracy)
+            self.log(f"test_task_{i}_f1", f1)
+            self.log(f"test_task_{i}_conf_acc", conf_acc)
+
+            print(f"Task {i} Accuracy: {accuracy:.2f}")
+            print(f"Task {i} F1 Score: {f1:.2f}")
+            print(f"Task {i} Confusion Matrix:")
+            print(conf_matrix)
+
+        all_true_stacked = np.stack(all_true, axis=1)
+        all_pred_stacked = np.stack(all_pred, axis=1)
+
+        correct_per_sample = np.all(all_true_stacked == all_pred_stacked, axis=1)
+        overall_accuracy = np.mean(correct_per_sample)
+
+        self.log("test_accuracy (Low-level)", overall_accuracy)
+        self.log("test_accuracy (High-level)", np.mean(task_accuracies))
+
+        print(f"Overall Accuracy (Low-level): {overall_accuracy:.2f}")
+        print(f"Mean Task Accuracy (High-level): {np.mean(task_accuracies):.2f}")
 
         self.test_step_outputs = []
 

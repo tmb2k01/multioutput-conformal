@@ -142,20 +142,31 @@ class HighLevelModel(pl.LightningModule):
 
     def on_test_epoch_end(self):
         """
-        Called at the end of the test epoch. Computes and logs per-task metrics.
+        Called at the end of the test epoch. Computes and logs per-task metrics,
+        as well as aggregate metrics over all tasks.
         """
         outputs = self.test_step_outputs
+
         true_labels = list(zip(*[out[0] for out in outputs]))
         pred_labels = list(zip(*[out[1] for out in outputs]))
+
+        task_accuracies = []
+        all_true = []
+        all_pred = []
 
         for i, (y_true, y_pred) in enumerate(zip(true_labels, pred_labels)):
             y_true = np.concatenate(y_true)
             y_pred = np.concatenate(y_pred)
 
+            all_true.append(y_true)
+            all_pred.append(y_pred)
+
             accuracy = accuracy_score(y_true, y_pred)
             f1 = f1_score(y_true, y_pred, average="weighted")
             conf_matrix = confusion_matrix(y_true, y_pred)
             conf_acc = np.trace(conf_matrix) / np.sum(conf_matrix)
+
+            task_accuracies.append(accuracy)
 
             self.log(f"test_task_{i}_accuracy", accuracy)
             self.log(f"test_task_{i}_f1", f1)
@@ -165,6 +176,18 @@ class HighLevelModel(pl.LightningModule):
             print(f"Task {i} F1 Score: {f1:.2f}")
             print(f"Task {i} Confusion Matrix:")
             print(conf_matrix)
+
+        all_true_stacked = np.stack(all_true, axis=1)
+        all_pred_stacked = np.stack(all_pred, axis=1)
+
+        correct_per_sample = np.all(all_true_stacked == all_pred_stacked, axis=1)
+        overall_accuracy = np.mean(correct_per_sample)
+
+        self.log("test_accuracy (Low-level)", overall_accuracy)
+        self.log("test_accuracy (High-level)", np.mean(task_accuracies))
+
+        print(f"Overall Accuracy (Low-level): {overall_accuracy:.2f}")
+        print(f"Mean Task Accuracy (High-level): {np.mean(task_accuracies):.2f}")
 
         self.test_step_outputs = []
 
