@@ -106,7 +106,7 @@ class MultiOutputDataModule(pl.LightningDataModule):
     def __init__(self, root_dir, task_num_classes, batch_size=32, num_workers=4):
         super().__init__()
         self.root_dir = root_dir
-        self.num_classes_list = task_num_classes
+        self.task_num_classes = task_num_classes
         self.batch_size = batch_size
         self.num_workers = num_workers
 
@@ -119,20 +119,20 @@ class MultiOutputDataModule(pl.LightningDataModule):
         """
         self.train_dataset = MultiOutputDataset(
             root_dir=os.path.join(self.root_dir, "train"),
-            task_num_classes=self.num_classes_list,
+            task_num_classes=self.task_num_classes,
             transform=Compose([RandomVerticalFlip()]),  # Simple data augmentation
         )
         self.val_dataset = MultiOutputDataset(
             root_dir=os.path.join(self.root_dir, "valid"),
-            task_num_classes=self.num_classes_list,
+            task_num_classes=self.task_num_classes,
         )
         self.test_dataset = MultiOutputDataset(
             root_dir=os.path.join(self.root_dir, "test"),
-            task_num_classes=self.num_classes_list,
+            task_num_classes=self.task_num_classes,
         )
         self.calib_dataset = MultiOutputDataset(
             root_dir=os.path.join(self.root_dir, "calib"),
-            task_num_classes=self.num_classes_list,
+            task_num_classes=self.task_num_classes,
         )
 
     def train_dataloader(self):
