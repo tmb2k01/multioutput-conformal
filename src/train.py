@@ -1,3 +1,5 @@
+from typing import Union
+
 import pytorch_lightning as pl
 import torch
 
@@ -12,7 +14,12 @@ MDC_TYPE = 11
 MDC_TASK_NUM_CLASSES = [MDC_COLOR, MDC_TYPE]
 
 
-def train_model(root_dir, filename, task_num_classes, model_class):
+def train_model(
+    root_dir,
+    filename,
+    task_num_classes,
+    model: Union[HighLevelModel, LowLevelModel],
+):
     datamodule = MultiOutputDataModule(
         root_dir=root_dir,
         task_num_classes=task_num_classes,
@@ -20,7 +27,7 @@ def train_model(root_dir, filename, task_num_classes, model_class):
         num_workers=8,
     )
     datamodule.setup()
-    model = model_class(task_num_classes=task_num_classes)
+    model = model(task_num_classes=task_num_classes)
     wandb_logger = pl.loggers.WandbLogger(
         project=f"{filename}",
     )
