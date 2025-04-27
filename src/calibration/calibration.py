@@ -1,27 +1,10 @@
-from typing import Callable, Dict, Union
+from typing import Union
 
-from calibration.calibration_type_valid import (
-    VALID_CALIBRATION_TYPES,
-    VALID_NONCONFORMITY_METHODS,
-)
 from src.calibration.nonconformity_functions import NONCONFORMITY_FN_DIC
-from src.models.high_level_model import HighLevelModel
-from src.models.low_level_model import LowLevelModel
-
-CALIBRATION_FN_HIGH_DIC: Dict[str, Callable[..., float]] = {
-    "scp_task_thresholds": None,
-    "scp_global_threshold": None,
-    "ccp_class_thresholds": None,
-    "ccp_task_clusters": None,
-    "ccp_global_clusters": None,
-}
-
-CALIBRATION_FN_LOW_DIC: Dict[str, Callable[..., float]] = {
-    "scp_global_threshold": None,
-#    "ccp_class_thresholds": None,
-#    "ccp_global_clusters": None,
-#    "ccp_joint_class_repr": None,
-}
+from src.calibration.calibration_utils import (
+    CALIBRATION_FN_HIGH_DIC,
+    CALIBRATION_FN_LOW_DIC,
+)
 
 
 def calibration(
@@ -52,7 +35,8 @@ def calibration(
         if high_level
         else CALIBRATION_FN_LOW_DIC.items()
     ):
-        q_hats[calibration_type] = calibration_fn(nonconformity_scores, true_labels, clusters=clusters)
-
+        q_hats[calibration_type] = calibration_fn(
+            nonconformity_scores, true_labels, alpha, clusters=clusters
+        )
 
     return q_hats

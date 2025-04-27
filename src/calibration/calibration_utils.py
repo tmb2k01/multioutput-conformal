@@ -1,3 +1,4 @@
+from typing import Callable, Dict
 import numpy as np
 
 
@@ -58,6 +59,7 @@ def compute_qhat_scp_global(nonconformity_scores, true_labels, alpha, clusters=N
         )
         return get_conformal_quantile(true_scores, alpha)
 
+
 def compute_qhat_scp_task(nonconformity_scores, true_labels, alpha, clusters=None):
     """
     Compute the q-hat value for the SCP task calibration method.
@@ -78,3 +80,19 @@ def compute_qhat_scp_task(nonconformity_scores, true_labels, alpha, clusters=Non
     ).squeeze(axis=2)
     q_hats = np.apply_along_axis(get_conformal_quantile, 1, true_scores, alpha)
     return q_hats
+
+
+CALIBRATION_FN_HIGH_DIC: Dict[str, Callable[..., float]] = {
+    "scp_global_threshold": compute_qhat_scp_global,
+    "scp_task_thresholds": compute_qhat_scp_task,
+    "ccp_class_thresholds": None,
+    "ccp_task_clusters": None,
+    "ccp_global_clusters": None,
+}
+
+CALIBRATION_FN_LOW_DIC: Dict[str, Callable[..., float]] = {
+    "scp_global_threshold": compute_qhat_scp_global,
+    #    "ccp_class_thresholds": None,
+    #    "ccp_global_clusters": None,
+    #    "ccp_joint_class_repr": None,
+}
