@@ -8,6 +8,7 @@ from calibration.calibration_type_valid import VALID_CALIBRATION_TYPES
 from src.data.multi_output_dataset import MultiOutputDataModule
 from src.models.high_level_model import HighLevelModel
 from src.models.low_level_model import LowLevelModel
+from src.calibration.calibration import calibration
 
 # MDC Dataset properties
 MDC_COLOR = 12
@@ -20,6 +21,8 @@ def train_model(
     filename,
     task_num_classes,
     model: Union[HighLevelModel, LowLevelModel],
+    alpha: float = 0.05,
+    calibration_clusters: Union[None, int] = None,
 ):
     datamodule = MultiOutputDataModule(
         root_dir=root_dir,
@@ -54,40 +57,20 @@ def train_model(
     )
     trainer.fit(model, datamodule)
 
-
-def calibrate_model(
-    root_dir,
-    filename,
-    task_num_classes,
-    model_class: Union[HighLevelModel, LowLevelModel],
-    calibration_type: VALID_CALIBRATION_TYPES,
-):
-    datamodule = MultiOutputDataModule(
-        root_dir=root_dir,
-        task_num_classes=task_num_classes,
-        batch_size=64,
-        num_workers=8,
-    )
-    datamodule.setup()
-    model = model_class.load_from_checkpoint(
-        checkpoint_path=f"models/{filename}.ckpt",
-        task_num_classes=task_num_classes,
-    )
+    # Calibration logic goes here
     model.eval()
     trainer = pl.Trainer(accelerator="gpu")
-    predictions = trainer.predict(model, dataloaders=datamodule.calib_dataloader())
-    # Calibration logic goes here
+    calib_preds = trainer.predict(model, dataloaders=datamodule.calib_dataloader())
+
+    q_hats = calibration(
+        calib_preds, high_level=(model is HighLevelModel), alpha=alpha, clusters=calibration_clusters
+    )
+    torch.save(q_hats, f"models/{filename}_calibration.pt")
 
 
 def train():
     print(f"Is CUDA available: {torch.cuda.is_available()}")
     wandb.login()
     train_model("data", "mdc-high-level-model", MDC_TASK_NUM_CLASSES, HighLevelModel)
-    calibrate_model(
-        "data",
-        "mdc-high-level-model",
-        MDC_TASK_NUM_CLASSES,
-        HighLevelModel,
-        calibration_type="scp_task_thresholds",
-    )
+
     train_model("data", "mdc-low-level-model", MDC_TASK_NUM_CLASSES, LowLevelModel)

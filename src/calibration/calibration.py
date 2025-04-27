@@ -5,21 +5,30 @@ from calibration.calibration_type_valid import (
     VALID_NONCONFORMITY_METHODS,
 )
 from src.calibration.nonconformity_functions import NONCONFORMITY_FN_DIC
+from src.models.high_level_model import HighLevelModel
+from src.models.low_level_model import LowLevelModel
 
-CALIBRATION_FN_DIC: Dict[str, Callable[..., float]] = {
+CALIBRATION_FN_HIGH_DIC: Dict[str, Callable[..., float]] = {
     "scp_task_thresholds": None,
     "scp_global_threshold": None,
     "ccp_class_thresholds": None,
     "ccp_task_clusters": None,
     "ccp_global_clusters": None,
-    "ccp_joint_class_repr": None,
+}
+
+CALIBRATION_FN_LOW_DIC: Dict[str, Callable[..., float]] = {
+    "scp_global_threshold": None,
+#    "ccp_class_thresholds": None,
+#    "ccp_global_clusters": None,
+#    "ccp_joint_class_repr": None,
 }
 
 
 def calibration(
-    predictions,
-    calibration_type: VALID_CALIBRATION_TYPES,
-    unconformity_method: VALID_NONCONFORMITY_METHODS,
+    scores,
+    true_labels,
+    high_level: bool = True,
+    alpha: float = 0.05,
     clusters: Union[None, int] = None,
 ):
     """
@@ -33,13 +42,17 @@ def calibration(
         The calibrated predictions.
     """
 
-    nonconformity_fn = NONCONFORMITY_FN_DIC.get(unconformity_method)
-    nonconformity_scores = nonconformity_fn(predictions)
+    nonconformity_scores = {}
+    for nonconformity_name, nonconformity_fn in NONCONFORMITY_FN_DIC().items():
+        nonconformity_scores[nonconformity_name] = nonconformity_fn(scores)
 
-    calibration_fn = CALIBRATION_FN_DIC.get(calibration_type)
-    if calibration_fn is None:
-        raise ValueError(f"Calibration type is not implemented: {calibration_type}")
+    q_hats = {}
+    for calibration_type, calibration_fn in (
+        CALIBRATION_FN_HIGH_DIC.items()
+        if high_level
+        else CALIBRATION_FN_LOW_DIC.items()
+    ):
+        q_hats[calibration_type] = calibration_fn(nonconformity_scores, true_labels, clusters=clusters)
 
-    q_hat = calibration_fn(nonconformity_scores, clusters=clusters)
 
-    return q_hat
+    return q_hats
