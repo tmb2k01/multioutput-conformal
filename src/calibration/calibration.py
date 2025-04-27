@@ -35,8 +35,11 @@ def calibration(
         if high_level
         else CALIBRATION_FN_LOW_DIC.items()
     ):
-        q_hats[calibration_type] = calibration_fn(
-            nonconformity_scores, true_labels, alpha, clusters=clusters
-        )
+        for nonconformity_name in NONCONFORMITY_FN_DIC().keys():
+            if calibration_type not in q_hats:
+                q_hats[calibration_type] = {}
+            q_hats[calibration_type][nonconformity_name] = calibration_fn(
+                nonconformity_scores[nonconformity_name], true_labels, alpha, clusters=clusters
+            )
 
     return q_hats

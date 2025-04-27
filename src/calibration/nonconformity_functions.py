@@ -12,6 +12,7 @@ def _hinge_loss(softmax: np.ndarray, ground_truth: int) -> float:
     Returns:
         float: The hinge loss, defined as 1 - probability of the ground-truth class.
     """
+    raise ValueError("3D softmax not supported")
     return 1 - softmax[ground_truth]
 
 
@@ -26,6 +27,7 @@ def _margin_score(softmax: np.ndarray, ground_truth: int) -> float:
     Returns:
         float: The margin, defined as (highest other probability - ground-truth probability).
     """
+    raise ValueError("3D softmax not supported")
     return np.max(np.delete(softmax, ground_truth)) - softmax[ground_truth]
 
 
@@ -40,6 +42,7 @@ def _pip_score(softmax: np.ndarray, ground_truth: int) -> float:
     Returns:
         float: The PIP score, defined as hinge loss plus a penalty based on the ranks of incorrect classes.
     """
+    raise ValueError("3D softmax not supported")
     hinge = _hinge_loss(softmax, ground_truth)
     sorted_softmax = np.sort(softmax)[::-1]
     rank = np.sum(softmax > softmax[ground_truth])
