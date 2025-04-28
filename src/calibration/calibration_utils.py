@@ -28,16 +28,23 @@ def get_conformal_quantile(scores: np.ndarray, alpha: float) -> float:
     return qhat
 
 
-def compute_qhat_scp_global(nonconformity_scores, true_labels, alpha, clusters=None):
+def compute_qhat_scp_global(
+    nonconformity_scores: np.ndarray,
+    true_labels: np.ndarray,
+    alpha: float,
+    clusters: int = None,
+):
     """
     Compute the q-hat value for the Standard Conformal Prediction global calibration method.
 
     Args:
-        nonconformity_scores: The nonconformity scores.
-        clusters: The number of clusters (not used in this method).
+        nonconformity_scores (np.ndarray): The nonconformity scores. Shape (B, C) or (T, B, C).
+        true_labels (np.ndarray): The true labels. Shape (B,) or (T, B).
+        alpha (float): The miscoverage level.
+        clusters (int): The number of clusters (not used in this method).
 
     Returns:
-        The q-hat value.
+        float: The global standard q-hat value.
     """
     assert nonconformity_scores.ndim in (
         2,
@@ -63,16 +70,23 @@ def compute_qhat_scp_global(nonconformity_scores, true_labels, alpha, clusters=N
         return get_conformal_quantile(true_scores, alpha)
 
 
-def compute_qhat_scp_task(nonconformity_scores, true_labels, alpha, clusters=None):
+def compute_qhat_scp_task(
+    nonconformity_scores: np.ndarray,
+    true_labels: np.ndarray,
+    alpha: float,
+    clusters: int = None,
+):
     """
     Compute the q-hat value for the Standard Conformal Prediction task calibration method.
 
     Args:
-        nonconformity_scores: The nonconformity scores.
-        clusters: The number of clusters.
+        nonconformity_scores (np.ndarray): The nonconformity scores. Shape (T, B, C).
+        true_labels (np.ndarray): The true labels. Shape (T, B).
+        alpha (float): The miscoverage level.
+        clusters (int): The number of clusters (not used in this method).
 
     Returns:
-        The q-hat value.
+        np.ndarray: The standard q-hat values for each task.
     """
     assert nonconformity_scores.ndim == 3, "Nonconformity scores should be 3D."
     assert (
@@ -92,33 +106,28 @@ def compute_qhat_ccp_class(
     clusters=None,
 ) -> np.ndarray:
     """
-    Compute fully vectorized q-hat values for CCP class calibration.
-
+    Compute the q-hat value for the CCP class calibration method.
     Args:
-        nonconformity_scores (np.ndarray): Shape (T, B, C) or (B, C).
-        true_labels (np.ndarray): Shape (T, B) or (B,).
-        alpha (float): Miscoverage level.
+        nonconformity_scores (np.ndarray): The nonconformity scores. Shape (B, C) or (T, B, C).
+        true_labels (np.ndarray): The true labels. Shape (B,) or (T, B).
+        alpha (float): The miscoverage level.
+        clusters (int): The number of clusters (not used in this method).
 
     Returns:
-        np.ndarray: q-hat values of shape (T, C) or (C,).
+        np.ndarray: The classwise q-hat values of shape (C,) or shape (T,C,) for each task.
     """
 
     def vectorized_qhat(task_scores, task_labels, num_classes):
         """
         Compute class-wise quantiles for given task scores and labels.
 
-        Parameters:
-        -----------
-        task_scores : numpy.ndarray
-            A 2D array of shape (B, C) where B is the number of samples and C is the number of classes.
-            Each entry represents the score for a specific sample and class.
-        task_labels : numpy.ndarray
-            A 1D array of shape (B,) containing the true class labels for each sample.
-        num_classes : int
-            The total number of classes.
+        Args:
+            task_scores (np.ndarray): Nonconformity scores of shape (B, C).
+            task_labels (np.ndarray): True labels of shape (B,).
+            num_classes (int): Number of classes.
 
         Returns:
-            numpy.ndarray: np.ndarray: q-hat values of shape (C,).
+            np.ndarray: The q-hat values of shape (C,).
         """
         # task_scores: (B, C), task_labels: (B,)
         # Create (B, C) mask where mask[b, c] = True if label[b] == c
