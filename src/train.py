@@ -9,6 +9,7 @@ from src.data.multi_output_dataset import MultiOutputDataModule
 from src.models.high_level_model import HighLevelModel
 from src.models.low_level_model import LowLevelModel
 from src.calibration.calibration import calibration
+import json
 
 # MDC Dataset properties
 MDC_COLOR = 12
@@ -63,9 +64,13 @@ def train_model(
     calib_preds = trainer.predict(model, dataloaders=datamodule.calib_dataloader())
 
     q_hats = calibration(
-        calib_preds, high_level=(model is HighLevelModel), alpha=alpha, clusters=calibration_clusters
+        calib_preds,
+        high_level=isinstance(model, HighLevelModel),
+        alpha=alpha,
+        clusters=calibration_clusters,
     )
-    torch.save(q_hats, f"models/{filename}_calibration.pt")
+    with open(f"models/{filename}_calibration.json", "w") as f:
+        json.dump(q_hats.tolist(), f)
 
 
 def train():

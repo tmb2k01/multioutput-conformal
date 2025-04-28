@@ -26,7 +26,7 @@ def calibration(
     """
 
     nonconformity_scores = {}
-    for nonconformity_name, nonconformity_fn in NONCONFORMITY_FN_DIC().items():
+    for nonconformity_name, nonconformity_fn in NONCONFORMITY_FN_DIC.items():
         nonconformity_scores[nonconformity_name] = nonconformity_fn(scores)
 
     q_hats = {}
@@ -35,7 +35,7 @@ def calibration(
         if high_level
         else CALIBRATION_FN_LOW_DIC.items()
     ):
-        for nonconformity_name in NONCONFORMITY_FN_DIC().keys():
+        for nonconformity_name in NONCONFORMITY_FN_DIC.keys():
             if calibration_type not in q_hats:
                 q_hats[calibration_type] = {}
             q_hats[calibration_type][nonconformity_name] = calibration_fn(

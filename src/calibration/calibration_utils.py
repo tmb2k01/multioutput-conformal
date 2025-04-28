@@ -38,9 +38,10 @@ def compute_qhat_scp_global(nonconformity_scores, true_labels, alpha, clusters=N
     Returns:
         The q-hat value.
     """
-    assert (
-        len(nonconformity_scores.shape) == 2 or len(nonconformity_scores.shape) == 3
-    ), "Nonconformity Scores should be 2D or 3D"
+    assert nonconformity_scores.ndim in (
+        2,
+        3,
+    ), "Nonconformity scores should be 2D or 3D."
 
     if len(nonconformity_scores.shape) == 3:
         true_scores = np.squeeze(
@@ -70,9 +71,10 @@ def compute_qhat_scp_task(nonconformity_scores, true_labels, alpha, clusters=Non
     Returns:
         The q-hat value.
     """
-    assert (
-        len(nonconformity_scores.shape) == 2 or len(nonconformity_scores.shape) == 3
-    ), "Nonconformity Scores should be 3D"
+    assert nonconformity_scores.ndim in (
+        2,
+        3,
+    ), "Nonconformity scores should be 2D or 3D."
 
     true_scores = np.take_along_axis(
         nonconformity_scores, np.expand_dims(true_labels, axis=1), axis=2
@@ -90,9 +92,10 @@ def compute_qhat_ccp_class(nonconformity_scores, true_labels, alpha, clusters=No
     Returns:
         The q-hat value.
     """
-    assert (
-        len(nonconformity_scores.shape) == 2 or len(nonconformity_scores.shape) == 3
-    ), "Nonconformity Scores should be 3D"
+    assert nonconformity_scores.ndim in (
+        2,
+        3,
+    ), "Nonconformity scores should be 2D or 3D."
 
     def compute_qhat_for_task(task_scores, task_labels):
         unique_labels = np.unique(task_labels)
