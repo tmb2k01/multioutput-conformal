@@ -4,7 +4,6 @@ import pytorch_lightning as pl
 import torch
 
 import wandb
-from calibration.calibration_type_valid import VALID_CALIBRATION_TYPES
 from src.data.multi_output_dataset import MultiOutputDataModule
 from src.models.high_level_model import HighLevelModel
 from src.models.low_level_model import LowLevelModel

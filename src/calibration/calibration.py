@@ -13,16 +13,28 @@ def calibration(
     high_level: bool = True,
     alpha: float = 0.05,
     clusters: Union[None, int] = None,
-):
+) -> dict[str, dict]:
     """
-    Perform calibration on the predictions based on the specified calibration type.
+    Perform conformal calibration using various nonconformity and calibration methods.
 
     Args:
-        predictions: The predictions to be calibrated.
-        calibration_type: The type of calibration to be performed.
+        scores (np.ndarray): The model prediction scores. Shape (B, C) or (T, B, C),
+                             where B is the batch size, C is the number of classes,
+                             and T is the number of tasks (optional).
+        true_labels (np.ndarray): True class labels. Shape (B,) or (T, B).
+        high_level (bool): If True, use high-level calibration functions.
+        alpha (float): Desired miscoverage level (e.g., 0.05 for 95% coverage).
+        clusters (int or None): Number of clusters for cluster-based calibration,
+                                or None to disable clustering.
 
     Returns:
-        The calibrated predictions.
+        dict[str, dict]: A nested dictionary of q-hat values with structure:
+                         {
+                             "calibration_type": {
+                                 "nonconformity_type": np.ndarray of q-hats
+                             }
+                         }
+                         Each q-hat is of shape (C,) or (T, C) depending on input.
     """
 
     nonconformity_scores = {}
