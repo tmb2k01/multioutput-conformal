@@ -15,6 +15,21 @@ MDC_COLOR = 12
 MDC_TYPE = 11
 MDC_TASK_NUM_CLASSES = [MDC_COLOR, MDC_TYPE]
 
+import json
+import numpy as np
+
+def convert_numpy_to_native(obj):
+    if isinstance(obj, np.ndarray):
+        return obj.tolist()
+    elif isinstance(obj, (np.integer, np.floating)):
+        return obj.item()
+    elif isinstance(obj, dict):
+        return {k: convert_numpy_to_native(v) for k, v in obj.items()}
+    elif isinstance(obj, list):
+        return [convert_numpy_to_native(x) for x in obj]
+    else:
+        return obj
+
 
 def train_model(
     root_dir,
@@ -68,8 +83,10 @@ def train_model(
         alpha=alpha,
         clusters=calibration_clusters,
     )
+    
+    # Save the calibration result to JSON
     with open(f"models/{filename}_calibration.json", "w") as f:
-        json.dump(q_hats.tolist(), f)
+        json.dump(convert_numpy_to_native(q_hats), f, indent=2)
 
 
 def train():
