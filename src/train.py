@@ -1,22 +1,21 @@
 from typing import Union
 
+import json
+import numpy as np
 import pytorch_lightning as pl
 import torch
-
 import wandb
+
 from src.data.multi_output_dataset import MultiOutputDataModule
 from src.models.high_level_model import HighLevelModel
 from src.models.low_level_model import LowLevelModel
 from src.calibration.calibration import calibration
-import json
 
 # MDC Dataset properties
 MDC_COLOR = 12
 MDC_TYPE = 11
 MDC_TASK_NUM_CLASSES = [MDC_COLOR, MDC_TYPE]
 
-import json
-import numpy as np
 
 def convert_numpy_to_native(obj):
     if isinstance(obj, np.ndarray):
@@ -83,7 +82,7 @@ def train_model(
         alpha=alpha,
         clusters=calibration_clusters,
     )
-    
+
     # Save the calibration result to JSON
     with open(f"models/{filename}_calibration.json", "w") as f:
         json.dump(convert_numpy_to_native(q_hats), f, indent=2)

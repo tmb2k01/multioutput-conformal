@@ -1,5 +1,3 @@
-from typing import Union
-
 from src.calibration.nonconformity_functions import NONCONFORMITY_FN_DIC
 from src.calibration.calibration_utils import (
     CALIBRATION_FN_HIGH_DIC,
@@ -8,11 +6,7 @@ from src.calibration.calibration_utils import (
 
 
 def calibration(
-    scores,
-    true_labels,
-    high_level: bool = True,
-    alpha: float = 0.05,
-    **kwargs
+    scores, true_labels, high_level: bool = True, alpha: float = 0.05, **kwargs
 ) -> dict[str, dict]:
     """
     Perform conformal calibration using various nonconformity and calibration methods.
