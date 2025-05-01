@@ -12,7 +12,7 @@ def calibration(
     true_labels,
     high_level: bool = True,
     alpha: float = 0.05,
-    clusters: Union[None, int] = None,
+    **kwargs
 ) -> dict[str, dict]:
     """
     Perform conformal calibration using various nonconformity and calibration methods.
@@ -24,8 +24,8 @@ def calibration(
         true_labels (np.ndarray): True class labels. Shape (B,) or (T, B).
         high_level (bool): If True, use high-level calibration functions.
         alpha (float): Desired miscoverage level (e.g., 0.05 for 95% coverage).
-        clusters (int or None): Number of clusters for cluster-based calibration,
-                                or None to disable clustering.
+        **kwargs (dict): Additional keyword arguments to be passed to individual calibration functions,
+                         e.g., clusters, cluster_method, etc.
 
     Returns:
         dict[str, dict]: A nested dictionary of q-hat values with structure:
@@ -51,7 +51,7 @@ def calibration(
             if calibration_type not in q_hats:
                 q_hats[calibration_type] = {}
             q_hats[calibration_type][nonconformity_name] = calibration_fn(
-                nonconformity_scores[nonconformity_name], true_labels, alpha, clusters=clusters
+                nonconformity_scores[nonconformity_name], true_labels, alpha, **kwargs
             )
 
     return q_hats

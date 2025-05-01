@@ -32,7 +32,7 @@ def compute_qhat_scp_global(
     nonconformity_scores: np.ndarray,
     true_labels: np.ndarray,
     alpha: float,
-    clusters: int = None,
+    **kwargs,
 ):
     """
     Compute the q-hat value for the Standard Conformal Prediction global calibration method.
@@ -41,7 +41,7 @@ def compute_qhat_scp_global(
         nonconformity_scores (np.ndarray): The nonconformity scores. Shape (B, C) or (T, B, C).
         true_labels (np.ndarray): The true labels. Shape (B,) or (T, B).
         alpha (float): The miscoverage level.
-        clusters (int): The number of clusters (not used in this method).
+        **kwargs (dict): Ignored.
 
     Returns:
         float: The global standard q-hat value.
@@ -74,7 +74,7 @@ def compute_qhat_scp_task(
     nonconformity_scores: np.ndarray,
     true_labels: np.ndarray,
     alpha: float,
-    clusters: int = None,
+    **kwargs,
 ):
     """
     Compute the q-hat value for the Standard Conformal Prediction task calibration method.
@@ -83,7 +83,7 @@ def compute_qhat_scp_task(
         nonconformity_scores (np.ndarray): The nonconformity scores. Shape (T, B, C).
         true_labels (np.ndarray): The true labels. Shape (T, B).
         alpha (float): The miscoverage level.
-        clusters (int): The number of clusters (not used in this method).
+        **kwargs (dict): Ignored.
 
     Returns:
         np.ndarray: The standard q-hat values for each task.
@@ -103,7 +103,7 @@ def compute_qhat_ccp_class(
     nonconformity_scores: np.ndarray,
     true_labels: np.ndarray,
     alpha: float,
-    clusters=None,
+    **kwargs,
 ) -> np.ndarray:
     """
     Compute the q-hat value for the CCP class calibration method.
@@ -111,7 +111,7 @@ def compute_qhat_ccp_class(
         nonconformity_scores (np.ndarray): The nonconformity scores. Shape (B, C) or (T, B, C).
         true_labels (np.ndarray): The true labels. Shape (B,) or (T, B).
         alpha (float): The miscoverage level.
-        clusters (int): The number of clusters (not used in this method).
+        **kwargs (dict): Ignored.
 
     Returns:
         np.ndarray: The classwise q-hat values of shape (C,) or shape (T,C,) for each task.
@@ -172,7 +172,8 @@ def compute_qhat_ccp_task_cluter(
     nonconformity_scores: np.ndarray,
     true_labels: np.ndarray,
     alpha: float,
-    clusters: int,
+    clusters: int = 10,
+    cluster_method: str = "kmeans",
 ) -> np.ndarray:
     """
     Compute the q-hat value for the CCP task cluster calibration method.
@@ -181,6 +182,8 @@ def compute_qhat_ccp_task_cluter(
         true_labels (np.ndarray): The true labels. Shape (T, B).
         alpha (float): The miscoverage level.
         clusters (int): The number of clusters.
+        cluster_method (str): The clustering method to use.
+                              Options: "kmeans", "hierarchical"
 
     Returns:
         np.ndarray: The classwise q-hat values of shape (T,C,) for each task.
@@ -191,7 +194,8 @@ def compute_qhat_ccp_global_cluster(
     nonconformity_scores: np.ndarray,
     true_labels: np.ndarray,
     alpha: float,
-    clusters: int,
+    clusters: int = 10,
+    cluster_method: str = "kmeans",
 ) -> np.ndarray:
     """
     Compute the q-hat value for the CCP global cluster calibration method.
@@ -200,6 +204,8 @@ def compute_qhat_ccp_global_cluster(
         true_labels (np.ndarray): The true labels. Shape (B,) or (T, B).
         alpha (float): The miscoverage level.
         clusters (int): The number of clusters.
+        cluster_method (str): The clustering method to use.
+                              Options: "kmeans", "hierarchical"
 
     Returns:
         np.ndarray: The classwise q-hat values of shape (C,) or shape (T,C,) for each task.
