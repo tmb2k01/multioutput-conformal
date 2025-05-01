@@ -1,7 +1,9 @@
 import numpy as np
 
 
-def quantile_embedding(samples: np.ndarray, q=[0.5, 0.6, 0.7, 0.8, 0.9]) -> np.ndarray:
+def quantile_embedding(
+    samples: np.ndarray, q: list = [0.5, 0.6, 0.7, 0.8, 0.9]
+) -> np.ndarray:
     """
     Compute the q-quantiles of the given samples.
 
@@ -18,7 +20,7 @@ def quantile_embedding(samples: np.ndarray, q=[0.5, 0.6, 0.7, 0.8, 0.9]) -> np.n
 def embed_all_classes(
     scores_all: np.ndarray,
     labels: np.ndarray,
-    q=[0.5, 0.6, 0.7, 0.8, 0.9],
+    q: list = [0.5, 0.6, 0.7, 0.8, 0.9],
     return_cts=False,
 ):
     """
@@ -58,7 +60,7 @@ def embed_all_classes(
 def embed_all_tasks(
     scores_all: np.ndarray,
     labels: np.ndarray,
-    q=[0.5, 0.6, 0.7, 0.8, 0.9],
+    q: list = [0.5, 0.6, 0.7, 0.8, 0.9],
     return_cts=False,
 ):
     """
