@@ -168,6 +168,44 @@ def compute_qhat_ccp_class(
         B, C = nonconformity_scores.shape
         return vectorized_qhat(nonconformity_scores, true_labels, C)
 
+def compute_qhat_ccp_task_cluter(
+    nonconformity_scores: np.ndarray,
+    true_labels: np.ndarray,
+    alpha: float,
+    clusters: int,
+) -> np.ndarray:
+    """
+    Compute the q-hat value for the CCP task cluster calibration method.
+    Args:
+        nonconformity_scores (np.ndarray): The nonconformity scores. Shape (T, B, C).
+        true_labels (np.ndarray): The true labels. Shape (T, B).
+        alpha (float): The miscoverage level.
+        clusters (int): The number of clusters.
+
+    Returns:
+        np.ndarray: The classwise q-hat values of shape (T,C,) for each task.
+    """
+    raise NotImplementedError("This function is not implemented yet.")
+
+def compute_qhat_ccp_global_cluster(
+    nonconformity_scores: np.ndarray,
+    true_labels: np.ndarray,
+    alpha: float,
+    clusters: int,
+) -> np.ndarray:
+    """
+    Compute the q-hat value for the CCP global cluster calibration method.
+    Args:
+        nonconformity_scores (np.ndarray): The nonconformity scores. Shape (B, C) or (T, B, C).
+        true_labels (np.ndarray): The true labels. Shape (B,) or (T, B).
+        alpha (float): The miscoverage level.
+        clusters (int): The number of clusters.
+
+    Returns:
+        np.ndarray: The classwise q-hat values of shape (C,) or shape (T,C,) for each task.
+    """
+    raise NotImplementedError("This function is not implemented yet.")
+
 
 CALIBRATION_FN_HIGH_DIC: Dict[str, Callable[..., float]] = {
     "scp_global_threshold": compute_qhat_scp_global,
