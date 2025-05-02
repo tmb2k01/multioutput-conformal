@@ -48,10 +48,14 @@ def _margin_score(softmax: np.ndarray) -> np.ndarray:
         Returns:
             np.ndarray: Margin scores, shape (B, C).
         """
-        highest_other = np.max(
-            np.delete(softmax_batch, np.arange(softmax_batch.shape[1]), axis=1), axis=1
-        )
-        return highest_other[:, None] - softmax_batch
+        B, C = softmax_batch.shape
+        margins = np.empty((B, C))
+        for j in range(C):
+            mask = np.ones(C, dtype=bool)
+            mask[j] = False
+            margins[:, j] = np.max(softmax_batch[:, mask], axis=1) - softmax_batch[:, j]
+        return margins
+
 
     if len(softmax.shape) == 3:
         return np.array([compute_margin(softmax[i]) for i in range(softmax.shape[0])])

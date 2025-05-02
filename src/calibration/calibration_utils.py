@@ -1,6 +1,6 @@
 import numpy as np
 from sklearn.cluster import KMeans, AgglomerativeClustering
-from typing import Callable, Dict
+from typing import Callable, Dict, Tuple
 
 from src.calibration.clustering_utils import embed_all_tasks, embed_all_classes
 
@@ -178,7 +178,7 @@ def compute_qhat_ccp_task_cluster(
     alpha: float,
     n_clusters: int = 10,
     cluster_method: str = "kmeans",
-    q: list = [0.5, 0.6, 0.7, 0.8, 0.9],
+    q: Tuple[float, ...] = (0.5, 0.6, 0.7, 0.8, 0.9),
 ) -> np.ndarray:
     """
     Compute the q-hat value for the Clustered Conformal Prediction method between tasks.
@@ -248,7 +248,7 @@ def compute_qhat_ccp_global_cluster(
     alpha: float,
     n_clusters: int = 10,
     cluster_method: str = "kmeans",
-    q: list = [0.5, 0.6, 0.7, 0.8, 0.9],
+    q: Tuple[float, ...] = (0.5, 0.6, 0.7, 0.8, 0.9),
 ) -> np.ndarray:
     """
     Compute the q-hat value for the Clastered Conformal Prediction method globally.
