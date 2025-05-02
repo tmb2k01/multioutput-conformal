@@ -135,6 +135,13 @@ class MultiOutputDataModule(pl.LightningDataModule):
             task_num_classes=self.task_num_classes,
         )
 
+        self.datasets = {
+            "train": self.train_dataset,
+            "valid": self.val_dataset,
+            "test": self.test_dataset,
+            "calib": self.calib_dataset,
+        }
+
     def train_dataloader(self):
         """Returns the training DataLoader."""
         return DataLoader(

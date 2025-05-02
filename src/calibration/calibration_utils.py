@@ -1,8 +1,9 @@
-import numpy as np
-from sklearn.cluster import KMeans, AgglomerativeClustering
-from typing import Callable, Dict, Tuple
+from typing import Callable, Dict, List, Tuple, Union
 
-from src.calibration.clustering_utils import embed_all_tasks, embed_all_classes
+import numpy as np
+from sklearn.cluster import AgglomerativeClustering, KMeans
+
+from src.calibration.clustering_utils import embed_all_classes, embed_all_tasks
 
 
 def get_conformal_quantile(scores: np.ndarray, alpha: float) -> float:
@@ -32,7 +33,7 @@ def get_conformal_quantile(scores: np.ndarray, alpha: float) -> float:
 
 
 def compute_qhat_scp_global(
-    nonconformity_scores: np.ndarray,
+    nonconformity_scores: Union[List[np.ndarray], np.ndarray],
     true_labels: np.ndarray,
     alpha: float,
     **kwargs,

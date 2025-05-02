@@ -80,6 +80,10 @@ class HighLevelModel(pl.LightningModule):
         outputs = [classifier(features) for classifier in self.classifiers]
         return outputs
 
+    def predict_step(self, batch, batch_idx, dataloader_idx=0):
+        x, _ = batch
+        return self(x)
+
     def shared_step(self, batch, stage, accuracy=False):
         """
         Shared logic for training and validation steps.
