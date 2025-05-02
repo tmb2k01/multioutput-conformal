@@ -1,6 +1,7 @@
 import os
 
 import pytorch_lightning as pl
+import torch
 import torchvision.transforms.functional as TF
 from PIL import Image
 from torch.utils.data import DataLoader, Dataset
@@ -86,7 +87,7 @@ class MultiOutputDataset(Dataset):
         if self.transform:
             image = self.transform(image)
 
-        return image, tuple(labels)
+        return image, torch.tensor(labels)
 
 
 class MultiOutputDataModule(pl.LightningDataModule):

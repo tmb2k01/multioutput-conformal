@@ -1,4 +1,4 @@
-from typing import Tuple
+from typing import List, Tuple
 
 import numpy as np
 
@@ -60,7 +60,7 @@ def embed_all_classes(
 
 
 def embed_all_tasks(
-    scores_all: np.ndarray,
+    scores_all: List[np.ndarray],
     labels: np.ndarray,
     q: Tuple[float, ...] = (0.5, 0.6, 0.7, 0.8, 0.9),
     return_cts=False,
@@ -69,30 +69,25 @@ def embed_all_tasks(
     Compute task-wise and class-wise quantile embeddings from prediction scores.
 
     Args:
-        scores_all (np.ndarray): Prediction scores. Shape (T, B, C) where
-                                 T = number of tasks,
-                                 B = batch size,
-                                 C = number of classes.
-        labels (np.ndarray): True class labels. Shape (B,).
-        q (list): List of quantiles to compute.
-        return_cts (bool): Whether to return per-task instance counts.
+        scores_all (List[np.ndarray]): List of prediction scores for each task. Each element in the list has shape (B, C),
+                                       where B is the batch size and C is the number of classes.
+        labels (np.ndarray): True class labels. Shape (T, B).
+        q (Tuple[float, ...]): List of quantiles to compute for the embeddings.
+        return_cts (bool): Whether to return per-task instance counts. Default is False.
 
     Returns:
-        np.ndarray: Task-wise class embeddings of shape (T, C, len(q)).
+        np.ndarray: Task-wise class embeddings of shape (T, C, len(q)), where T is the number of tasks.
         np.ndarray (optional): Per-task instance counts. Shape (T,).
     """
-    T, B, C = scores_all.shape
-    quant_dim = len(q)
-
-    embeddings = np.zeros((T, C, quant_dim))
+    T = len(scores_all)
+    embeddings = []
     cts = np.zeros(T)
 
     for task in range(T):
-        for cls in range(C):
-            cls_mask = labels == cls
-            cls_scores = scores_all[task, cls_mask, cls]
-            if cls_scores.size > 0:
-                embeddings[task, cls] = quantile_embedding(cls_scores, q)
-        cts[task] = np.sum(labels < C)
+        task_embeddings = embed_all_classes(
+            scores_all[task], labels[task], q=q, return_cts=False
+        )
+        embeddings.append(task_embeddings)
+        cts[task] = np.sum(labels[task] < task_embeddings.shape[0])
 
     return (embeddings, cts) if return_cts else embeddings

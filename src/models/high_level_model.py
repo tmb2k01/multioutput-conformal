@@ -99,7 +99,9 @@ class HighLevelModel(pl.LightningModule):
         x, targets = batch
         outputs = self(x)
 
-        losses = [self.loss_fn(out, target) for out, target in zip(outputs, targets)]
+        targets = targets.T  # shape [T, B]
+        losses = [self.loss_fn(out, targets[i]) for i, out in enumerate(outputs)]
+
         total_loss = sum(losses)
         self.log(f"{stage}_loss", total_loss)
 
