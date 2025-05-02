@@ -1,45 +1,51 @@
-from typing import Callable, Dict, Union
-
-from calibration.calibration_type_valid import (
-    VALID_CALIBRATION_TYPES,
-    VALID_NONCONFORMITY_METHODS,
-)
 from src.calibration.nonconformity_functions import NONCONFORMITY_FN_DIC
-
-CALIBRATION_FN_DIC: Dict[str, Callable[..., float]] = {
-    "scp_task_thresholds": None,
-    "scp_global_threshold": None,
-    "ccp_class_thresholds": None,
-    "ccp_task_clusters": None,
-    "ccp_global_clusters": None,
-    "ccp_joint_class_repr": None,
-}
+from src.calibration.calibration_utils import (
+    CALIBRATION_FN_HIGH_DIC,
+    CALIBRATION_FN_LOW_DIC,
+)
 
 
 def calibration(
-    predictions,
-    calibration_type: VALID_CALIBRATION_TYPES,
-    unconformity_method: VALID_NONCONFORMITY_METHODS,
-    clusters: Union[None, int] = None,
-):
+    scores, true_labels, high_level: bool = True, alpha: float = 0.05, **kwargs
+) -> dict[str, dict]:
     """
-    Perform calibration on the predictions based on the specified calibration type.
+    Perform conformal calibration using various nonconformity and calibration methods.
 
     Args:
-        predictions: The predictions to be calibrated.
-        calibration_type: The type of calibration to be performed.
+        scores (np.ndarray): The model prediction scores. Shape (B, C) or (T, B, C),
+                             where B is the batch size, C is the number of classes,
+                             and T is the number of tasks (optional).
+        true_labels (np.ndarray): True class labels. Shape (B,) or (T, B).
+        high_level (bool): If True, use high-level calibration functions.
+        alpha (float): Desired miscoverage level (e.g., 0.05 for 95% coverage).
+        **kwargs (dict): Additional keyword arguments to be passed to individual calibration functions,
+                         e.g., clusters, cluster_method, etc.
 
     Returns:
-        The calibrated predictions.
+        dict[str, dict]: A nested dictionary of q-hat values with structure:
+                         {
+                             "calibration_type": {
+                                 "nonconformity_type": np.ndarray of q-hats
+                             }
+                         }
+                         Each q-hat is of shape (C,) or (T, C) depending on input.
     """
 
-    nonconformity_fn = NONCONFORMITY_FN_DIC.get(unconformity_method)
-    nonconformity_scores = nonconformity_fn(predictions)
+    nonconformity_scores = {}
+    for nonconformity_name, nonconformity_fn in NONCONFORMITY_FN_DIC.items():
+        nonconformity_scores[nonconformity_name] = nonconformity_fn(scores)
 
-    calibration_fn = CALIBRATION_FN_DIC.get(calibration_type)
-    if calibration_fn is None:
-        raise ValueError(f"Calibration type is not implemented: {calibration_type}")
+    q_hats = {}
+    for calibration_type, calibration_fn in (
+        CALIBRATION_FN_HIGH_DIC.items()
+        if high_level
+        else CALIBRATION_FN_LOW_DIC.items()
+    ):
+        for nonconformity_name in NONCONFORMITY_FN_DIC.keys():
+            if calibration_type not in q_hats:
+                q_hats[calibration_type] = {}
+            q_hats[calibration_type][nonconformity_name] = calibration_fn(
+                nonconformity_scores[nonconformity_name], true_labels, alpha, **kwargs
+            )
 
-    q_hat = calibration_fn(nonconformity_scores, clusters=clusters)
-
-    return q_hat
+    return q_hats
