@@ -1,8 +1,9 @@
-import numpy as np
-from sklearn.cluster import KMeans, AgglomerativeClustering
-from typing import Callable, Dict, Tuple
+from typing import Callable, Dict, List, Tuple, Union
 
-from src.calibration.clustering_utils import embed_all_tasks, embed_all_classes
+import numpy as np
+from sklearn.cluster import AgglomerativeClustering, KMeans
+
+from src.calibration.clustering_utils import embed_all_classes, embed_all_tasks
 
 
 def get_conformal_quantile(scores: np.ndarray, alpha: float) -> float:
@@ -23,11 +24,13 @@ def get_conformal_quantile(scores: np.ndarray, alpha: float) -> float:
     val = np.ceil((n + 1) * (1 - alpha)) / n
     if val > 1:
         return np.inf
+
     try:
         qhat = np.quantile(scores, val, method="inverted_cdf")
     except TypeError:
         # For older numpy versions
-        qhat = np.quantile(scores, val, interpolation="lower")
+        sorted_scores = np.sort(scores)
+        qhat = np.quantile(sorted_scores, val, interpolation="lower")
     return qhat
 
 
@@ -36,41 +39,34 @@ def compute_qhat_scp_global(
     true_labels: np.ndarray,
     alpha: float,
     **kwargs,
-):
+) -> float:
     """
     Compute the q-hat value for the Standard Conformal Prediction global calibration method.
 
     Args:
-        nonconformity_scores (np.ndarray): The nonconformity scores. Shape (B, C) or (T, B, C).
-        true_labels (np.ndarray): The true labels. Shape (B,) or (T, B).
-        alpha (float): The miscoverage level.
-        **kwargs (dict): Ignored.
+        nonconformity_scores (np.ndarray): Nonconformity scores of the ground truth labels with shape
+                                           (T, B) or (B,) for multi-task or single-task setting.
+        true_labels (np.ndarray): Ground truth labels with shape (T, B) or (B,) for multi-task or single-task setting.
+        alpha (float): Miscoverage level.
+        **kwargs: Ignored.
 
     Returns:
-        float: The global standard q-hat value.
+        float: Global conformal quantile (q-hat).
     """
-    assert nonconformity_scores.ndim in (
-        2,
-        3,
-    ), "Nonconformity scores should be 2D or 3D."
     assert (
-        true_labels.shape[0] == nonconformity_scores.shape[0]
-    ), "Mismatch between true_labels and nonconformity_scores dimensions."
+        nonconformity_scores.shape == true_labels.shape
+    ), "Mismatch in shape between nonconformity scores and true labels."
+    assert nonconformity_scores.ndim in (
+        1,
+        2,
+    ), "Input dimension error - nonconformity_scores must be 1D (B,) or 2D (T, B)."
 
-    if len(nonconformity_scores.shape) == 3:
-        assert (
-            true_labels.shape[1] == nonconformity_scores.shape[1]
-        ), "Mismatch between true_labels and nonconformity_scores dimensions."
-        true_scores = np.take_along_axis(
-            nonconformity_scores, np.expand_dims(true_labels, axis=2), axis=2
-        ).squeeze(axis=2)
-        return get_conformal_quantile(true_scores.flatten(), alpha)
+    if nonconformity_scores.ndim == 2:
+        all_scores = nonconformity_scores.reshape(-1)
+    else:
+        all_scores = nonconformity_scores
 
-    elif len(nonconformity_scores.shape) == 2:
-        true_scores = np.take_along_axis(
-            nonconformity_scores, np.expand_dims(true_labels, axis=1), axis=1
-        ).squeeze(axis=1)
-        return get_conformal_quantile(true_scores, alpha)
+    return get_conformal_quantile(all_scores, alpha)
 
 
 def compute_qhat_scp_task(
@@ -78,28 +74,27 @@ def compute_qhat_scp_task(
     true_labels: np.ndarray,
     alpha: float,
     **kwargs,
-):
+) -> np.ndarray:
     """
-    Compute the q-hat value for the Standard Conformal Prediction task calibration method.
+    Compute the q-hat value for the Standard Conformal Prediction task-wise calibration method.
 
     Args:
-        nonconformity_scores (np.ndarray): The nonconformity scores. Shape (T, B, C).
-        true_labels (np.ndarray): The true labels. Shape (T, B).
-        alpha (float): The miscoverage level.
-        **kwargs (dict): Ignored.
+        nonconformity_scores (np.ndarray): Nonconformity scores of the ground truth labels with shape (T, B).
+        true_labels (np.ndarray): Ground truth labels with shape (T, B) with true labels per task.
+        alpha (float): Miscoverage level.
+        **kwargs: Ignored.
 
     Returns:
-        np.ndarray: The standard q-hat values for each task.
+        np.ndarray: Array of q-hat values, one per task. Shape (T,)
     """
-    assert nonconformity_scores.ndim == 3, "Nonconformity scores should be 3D."
     assert (
-        true_labels.shape == nonconformity_scores.shape[:2]
-    ), "Shape mismatch between true_labels and nonconformity_scores."
+        nonconformity_scores.shape == true_labels.shape
+    ), "Mismatch in shape between nonconformity scores and true labels."
+    assert (
+        nonconformity_scores.ndim == 2
+    ), "Input dimension error - nonconformity_scores must be 2D (T, B)."
 
-    true_scores = np.take_along_axis(
-        nonconformity_scores, np.expand_dims(true_labels, axis=1), axis=2
-    ).squeeze(axis=2)
-    return np.apply_along_axis(get_conformal_quantile, 1, true_scores, alpha)
+    return np.apply_along_axis(get_conformal_quantile, 1, nonconformity_scores, alpha)
 
 
 def compute_qhat_ccp_class(
@@ -107,138 +102,126 @@ def compute_qhat_ccp_class(
     true_labels: np.ndarray,
     alpha: float,
     **kwargs,
-) -> np.ndarray:
+) -> Union[np.ndarray, List[np.ndarray]]:
     """
-    Compute the q-hat value for the CCP class calibration method.
+    Compute the q-hat values for the CCP class-wise calibration method.
+
     Args:
-        nonconformity_scores (np.ndarray): The nonconformity scores. Shape (B, C) or (T, B, C).
-        true_labels (np.ndarray): The true labels. Shape (B,) or (T, B).
-        alpha (float): The miscoverage level.
-        **kwargs (dict): Ignored.
+        nonconformity_scores (np.ndarray): Nonconformity scores of the ground truth labels with shape
+                                           (T, B) or (B,) for multi-task or single-task setting.
+        true_labels (np.ndarray): Ground truth labels with shape (T, B) or (B,) for multi-task or single-task setting.
+        alpha (float): Miscoverage level.
 
     Returns:
-        np.ndarray: The classwise q-hat values of shape (C,) or shape (T,C,) for each task.
+        Union[np.ndarray, List[np.ndarray]]: Classwise q-hat values. Shape (T, C) for multi-task or (C,) for single-task.
     """
 
-    def vectorized_qhat(task_scores, task_labels, num_classes):
+    def vectorized_qhat(task_scores: np.ndarray, task_labels: np.ndarray) -> np.ndarray:
         """
-        Compute class-wise quantiles for given task scores and labels.
+        Compute q-hat for a single task using vectorized operations.
 
         Args:
-            task_scores (np.ndarray): Nonconformity scores of shape (B, C).
-            task_labels (np.ndarray): True labels of shape (B,).
-            num_classes (int): Number of classes.
+            task_scores (np.ndarray): Nonconformity scores for the task.
+            task_labels (np.ndarray): True labels for the task.
 
         Returns:
-            np.ndarray: The q-hat values of shape (C,).
+            np.ndarray: q-hat values for the task.
         """
-        # task_scores: (B, C), task_labels: (B,)
-        # Create (B, C) mask where mask[b, c] = True if label[b] == c
-        mask = task_labels[:, None] == np.arange(num_classes)[None, :]  # (B, C)
+        unique_classes = np.unique(task_labels)
+        n_classes = unique_classes.max() + 1
+        qhats = np.full(n_classes, np.inf)
 
-        # Set scores to nan where not matching the class
-        selected_scores = np.where(mask, task_scores, np.nan)  # (B, C)
+        for c in unique_classes:
+            class_mask = task_labels == c
+            class_scores = task_scores[class_mask]
+            if class_scores.size > 0:
+                qhats[c] = get_conformal_quantile(class_scores, alpha)
 
-        # Now compute quantiles ignoring nan
-        n_valid = np.sum(~np.isnan(selected_scores), axis=0)  # (C,)
-        val = np.ceil((n_valid + 1) * (1 - alpha)) / n_valid  # (C,)
-
-        # Compute quantiles per class
-        qhat_per_class = np.full(num_classes, np.inf)
-        for c in range(num_classes):
-            if n_valid[c] == 0 or val[c] > 1:
-                qhat_per_class[c] = np.inf
-            else:
-                class_scores = selected_scores[:, c]
-                qhat_per_class[c] = np.nanquantile(
-                    class_scores, val[c], method="inverted_cdf"
-                )
-
-        return qhat_per_class
-
-    assert nonconformity_scores.ndim in (
-        2,
-        3,
-    ), "Expected nonconformity_scores of shape (B, C) or (T, B, C)"
-
-    if nonconformity_scores.ndim == 3:
-        T, B, C = nonconformity_scores.shape
-        qhats = np.zeros((T, C))
-        for t in range(T):
-            qhats[t] = vectorized_qhat(nonconformity_scores[t], true_labels[t], C)
         return qhats
+
+    assert (
+        nonconformity_scores.shape == true_labels.shape
+    ), "Mismatch in shape between nonconformity scores and true labels."
+    assert nonconformity_scores.ndim in (
+        1,
+        2,
+    ), "Input dimension error - nonconformity_scores must be 1D (B,) or 2D (T, B)."
+
+    if nonconformity_scores.ndim == 2:
+        return [
+            vectorized_qhat(scores_t, labels_t)
+            for scores_t, labels_t in zip(nonconformity_scores, true_labels)
+        ]
+
     else:
-        B, C = nonconformity_scores.shape
-        return vectorized_qhat(nonconformity_scores, true_labels, C)
+        return vectorized_qhat(nonconformity_scores, true_labels)
 
 
 def compute_qhat_ccp_task_cluster(
     nonconformity_scores: np.ndarray,
     true_labels: np.ndarray,
     alpha: float,
-    n_clusters: int = 10,
+    n_clusters: int = 3,
     cluster_method: str = "kmeans",
     q: Tuple[float, ...] = (0.5, 0.6, 0.7, 0.8, 0.9),
-) -> np.ndarray:
+) -> dict:
     """
-    Compute the q-hat value for the Clustered Conformal Prediction method between tasks.
+    Compute q-hat values per task using Clustered Conformal Prediction (CCP).
+    
     Args:
-        nonconformity_scores (np.ndarray): The nonconformity scores. Shape (T, B, C).
-        true_labels (np.ndarray): The true labels. Shape (T, B).
+        nonconformity_scores (np.ndarray): Nonconformity scores of the ground truth labels with shape (T, B).
+        true_labels (np.ndarray): Ground truth labels with shape (T, B) with true labels per task.
         alpha (float): The miscoverage level.
-        n_clusters (int): The number of clusters.
-        cluster_method (str): The clustering method to use.
-                              Options: "kmeans", "hierarchical"
-        q (list): The quantiles to compute for each class.
-                              Default: [0.5, 0.6, 0.7, 0.8, 0.9]
-
+        n_clusters (int): The number of clusters per task.
+        cluster_method (str): Clustering method: "kmeans" or "hierarchical".
+        q (Tuple[float]): Quantiles for class embeddings.
+    
     Returns:
-        np.ndarray: The classwise q-hat values of shape (T,C,) for each task.
+        dict: {
+            'task-0': {'mapping': np.ndarray, 'qhats': np.ndarray},
+            'task-1': {...},
+            ...
+        }
     """
+    assert true_labels.ndim == 2, "Expected true_labels of shape (T, B)"
+    assert nonconformity_scores.shape == true_labels.shape, "Shape mismatch between scores and labels."
 
-    assert (
-        nonconformity_scores.ndim == 3
-    ), "Expected nonconformity_scores of shape (T, B, C)"
+    T = nonconformity_scores.shape[0]
+    result = {}
 
-    assert (
-        true_labels.shape == nonconformity_scores.shape[:2]
-    ), "Shape mismatch between true_labels and nonconformity_scores."
-
-    # 0 - Initialize the result dictionary
-    result = {
-        "class_to_cluster_mapping": {},
-        "cluster_qhats": None,
-    }
-
-    # 1 - Compute classes embeddings
+    # 1 - Embed each class per task
     task_class_embeddings = embed_all_tasks(nonconformity_scores, true_labels, q=q)
 
-    # 2 - Cluster the embeddings
-    relabeled_clusters = np.zeros_like(true_labels)
-    for t in range(task_class_embeddings.shape[0]):
-        class_embeds = task_class_embeddings[t]
-        min_n_clusters = min(n_clusters, class_embeds.shape[0])
+    # 2 - For each task, perform clustering and compute q-hats
+    for t in range(T):
+        class_embeds = task_class_embeddings[t]  # (C_t, D)
+        n_classes = class_embeds.shape[0]
+        n_task_clusters = min(n_clusters, n_classes)
 
+        # Choose clustering method
         if cluster_method == "kmeans":
-            kmeans = KMeans(n_clusters=min_n_clusters, random_state=0)
-            cluster_labels = kmeans.fit_predict(class_embeds)
+            clusterer = KMeans(n_clusters=n_task_clusters, random_state=0)
         elif cluster_method == "hierarchical":
-            hierarchical = AgglomerativeClustering(
-                n_clusters=min_n_clusters, affinity="euclidean", linkage="ward"
-            )
-            cluster_labels = hierarchical.fit_predict(class_embeds)
+            clusterer = AgglomerativeClustering(n_clusters=n_task_clusters, linkage="ward")
         else:
             raise ValueError(f"Unsupported clustering method: {cluster_method}")
 
-        result["class_to_cluster_mapping"][f"task-{t}"] = cluster_labels
+        # Cluster class embeddings
+        cluster_labels = clusterer.fit_predict(class_embeds)  # (C_t,)
+        relabeled = cluster_labels[true_labels[t]]  # Map B labels to cluster indices
 
-        # Relabel true labels using cluster assignments
-        relabeled_clusters[t] = cluster_labels[true_labels[t]]
+        # Compute q-hats for this task
+        task_qhats = compute_qhat_ccp_class(
+            nonconformity_scores=nonconformity_scores[t],
+            true_labels=relabeled,
+            alpha=alpha,
+        )
 
-    # 3 - Compute the q-hat values
-    result["cluster_qhats"] = compute_qhat_ccp_class(
-        nonconformity_scores, relabeled_clusters, alpha
-    )
+        result[f"task-{t}"] = {
+            "mapping": cluster_labels,
+            "qhats": task_qhats,
+        }
+
     return result
 
 
@@ -246,15 +229,16 @@ def compute_qhat_ccp_global_cluster(
     nonconformity_scores: np.ndarray,
     true_labels: np.ndarray,
     alpha: float,
-    n_clusters: int = 10,
+    n_clusters: int = 3,
     cluster_method: str = "kmeans",
     q: Tuple[float, ...] = (0.5, 0.6, 0.7, 0.8, 0.9),
-) -> np.ndarray:
+) -> dict:
     """
     Compute the q-hat value for the Clastered Conformal Prediction method globally.
     Args:
-        nonconformity_scores (np.ndarray): The nonconformity scores. Shape (B, C) or (T, B, C).
-        true_labels (np.ndarray): The true labels. Shape (B,) or (T, B).
+        nonconformity_scores (np.ndarray): Nonconformity scores of the ground truth labels with shape
+                                           (T, B) or (B,) for multi-task or single-task setting.
+        true_labels (np.ndarray): Ground truth labels with shape (T, B) or (B,) for multi-task or single-task setting.
         alpha (float): The miscoverage level.
         n_clusters (int): The number of clusters.
         cluster_method (str): The clustering method to use.
@@ -263,76 +247,63 @@ def compute_qhat_ccp_global_cluster(
                               Default: [0.5, 0.6, 0.7, 0.8, 0.9]
 
     Returns:
-        np.ndarray: The classwise q-hat values of shape (C,) or shape (T,C,) for each task.
+        dict: {
+            'class_to_cluster_mapping': Dict[str, np.ndarray],
+            'cluster_qhats': np.ndarray
+        }
     """
-    assert nonconformity_scores.ndim in (
-        2,
-        3,
-    ), "Expected nonconformity_scores of shape (B, C) or (T, B, C)"
-    assert (
-        true_labels.shape == nonconformity_scores.shape[:2]
-    ), "Shape mismatch between true_labels and nonconformity_scores."
+    assert nonconformity_scores.shape == true_labels.shape, "Shape mismatch."
+    assert nonconformity_scores.ndim in (1, 2), "Expected 1D or 2D inputs."
 
-    def cluster_embeddings(
-        embeds: np.ndarray, n_clusters: int, method: str
-    ) -> np.ndarray:
-        """
-        Cluster the embeddings using the specified method.
-        Args:
-            embeds (np.ndarray): The embeddings to cluster.
-            n_clusters (int): The number of clusters.
-            method (str): The clustering method to use.
-                          Options: "kmeans", "hierarchical"
-        Returns:
-            np.ndarray: The cluster labels for each embedding.
-        """
-        min_clusters = min(n_clusters, embeds.shape[0])
-        if method == "kmeans":
-            return KMeans(n_clusters=min_clusters, random_state=0).fit_predict(embeds)
-        elif method == "hierarchical":
-            return AgglomerativeClustering(
-                n_clusters=min_clusters, affinity="euclidean", linkage="ward"
-            ).fit_predict(embeds)
-        else:
-            raise ValueError(f"Unsupported clustering method: {method}")
+    is_multitask = nonconformity_scores.ndim == 2
+    result = {"class_to_cluster_mapping": {}, "cluster_qhats": None}
 
-    result = {
-        "class_to_cluster_mapping": {},
-        "cluster_qhats": None,
-    }
-
-    is_multitask = nonconformity_scores.ndim == 3
-
-    class_embeddings = (
-        embed_all_tasks(nonconformity_scores, true_labels, q=q)
-        if is_multitask
-        else embed_all_classes(nonconformity_scores, true_labels, q=q)
-    )
-
-    # Flatten embeddings and cluster
+    # Step 1: Embed class-level representations
     if is_multitask:
-        T, C, D = class_embeddings.shape
-        flat_embeddings = class_embeddings.reshape(-1, D)
-        cluster_labels = cluster_embeddings(flat_embeddings, n_clusters, cluster_method)
-        cluster_labels = cluster_labels.reshape(T, C)
-
-        for t in range(T):
-            result["class_to_cluster_mapping"][f"task-{t}"] = cluster_labels[t]
-
-        relabeled_clusters = np.array(
-            [cluster_labels[t][true_labels[t]] for t in range(T)]
-        )
-
-        all_scores = nonconformity_scores.reshape(-1, nonconformity_scores.shape[-1])
-        flat_labels = relabeled_clusters.flatten()
+        embeddings = embed_all_tasks(
+            nonconformity_scores, true_labels, q=q
+        )  # List of (C_t, D)
+        num_classes_per_task = [emb.shape[0] for emb in embeddings]
+        flat_embeddings = np.vstack(embeddings)  # (total_C, D)
     else:
-        cluster_labels = cluster_embeddings(
-            class_embeddings, n_clusters, cluster_method
+        flat_embeddings = embed_all_classes(
+            nonconformity_scores, true_labels, q=q
+        )  # (C, D)
+        num_classes_per_task = [flat_embeddings.shape[0]]
+
+    # Step 2: Choose and apply clustering method
+    n_classes = flat_embeddings.shape[0]
+    n_task_clusters = min(n_clusters, n_classes)
+
+    clusterer = {
+        "kmeans": KMeans(n_clusters=n_task_clusters, random_state=0),
+        "hierarchical": AgglomerativeClustering(
+            n_clusters=n_task_clusters, linkage="ward"
+        ),
+    }[cluster_method]
+
+    flat_cluster_labels = clusterer.fit_predict(flat_embeddings)
+
+    # Step 3: Map cluster labels back to tasks/classes
+    if is_multitask:
+        split_indices = np.cumsum(num_classes_per_task)[:-1]
+        per_task_labels = np.split(flat_cluster_labels, split_indices)
+
+        for t, labels in enumerate(per_task_labels):
+            result["class_to_cluster_mapping"][f"task-{t}"] = labels
+
+        # Build relabeled flat cluster assignments
+        relabeled_clusters = np.stack(
+            [per_task_labels[t][true_labels[t]] for t in range(len(per_task_labels))]
         )
-        result["class_to_cluster_mapping"] = cluster_labels
-        flat_labels = cluster_labels[true_labels]
+        flat_labels = relabeled_clusters.reshape(-1)
+        all_scores = nonconformity_scores.reshape(-1)
+    else:
+        result["class_to_cluster_mapping"] = flat_cluster_labels
+        flat_labels = flat_cluster_labels[true_labels]
         all_scores = nonconformity_scores
 
+    # Step 4: Compute q-hats by cluster
     result["cluster_qhats"] = compute_qhat_ccp_class(all_scores, flat_labels, alpha)
 
     return result

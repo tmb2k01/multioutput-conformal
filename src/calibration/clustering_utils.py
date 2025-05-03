@@ -1,4 +1,5 @@
-from typing import Tuple
+from typing import List, Tuple
+
 import numpy as np
 
 
@@ -28,8 +29,7 @@ def embed_all_classes(
     Compute class-wise quantile embeddings based on prediction scores.
 
     Args:
-        scores_all (np.ndarray): Prediction scores. Shape (B, C) or (B,), where B is the batch size,
-                                 C is the number of classes. If 1D, assumes scores for true class only.
+        scores_all (np.ndarray): Ground truth prediction scores. Shape (B,) where B is the batch size.
         labels (np.ndarray): True class labels. Shape (B,).
         q (list): List of quantiles to compute.
         return_cts (bool): Whether to return per-class instance counts.
@@ -44,16 +44,10 @@ def embed_all_classes(
     embeddings = np.zeros((num_classes, quant_dim))
     cts = np.bincount(labels, minlength=num_classes)
 
-    if scores_all.ndim == 2:
-        for cls in range(num_classes):
-            cls_scores = scores_all[labels == cls, cls]
-            if cls_scores.size > 0:
-                embeddings[cls] = quantile_embedding(cls_scores, q)
-    else:
-        for cls in range(num_classes):
-            cls_scores = scores_all[labels == cls]
-            if cls_scores.size > 0:
-                embeddings[cls] = quantile_embedding(cls_scores, q)
+    for cls in range(num_classes):
+        cls_scores = scores_all[labels == cls]
+        if cls_scores.size > 0:
+            embeddings[cls] = quantile_embedding(cls_scores, q)
 
     return (embeddings, cts) if return_cts else embeddings
 
@@ -63,35 +57,35 @@ def embed_all_tasks(
     labels: np.ndarray,
     q: Tuple[float, ...] = (0.5, 0.6, 0.7, 0.8, 0.9),
     return_cts=False,
-):
+) -> List[np.ndarray]:
     """
     Compute task-wise and class-wise quantile embeddings from prediction scores.
 
     Args:
-        scores_all (np.ndarray): Prediction scores. Shape (T, B, C) where
-                                 T = number of tasks,
-                                 B = batch size,
-                                 C = number of classes.
-        labels (np.ndarray): True class labels. Shape (B,).
-        q (list): List of quantiles to compute.
-        return_cts (bool): Whether to return per-task instance counts.
+        scores_all (np.ndarray): Ground truth prediction scores for each task. Shape (T, B)
+                                 where T is the number of tasks and B is the batch size.
+        labels (np.ndarray): Ground truth class labels. Shape (T, B).
+        q (Tuple[float, ...]): List of quantiles to compute for the embeddings.
+        return_cts (bool): Whether to return per-task instance counts. Default is False.
 
     Returns:
-        np.ndarray: Task-wise class embeddings of shape (T, C, len(q)).
-        np.ndarray (optional): Per-task instance counts. Shape (T,).
+        List[np.ndarray]: Task-wise class embeddings of shape (T, C, len(q)), where T is the number of tasks.
+        List[np.ndarray] (optional): Count of instances per class. Shape (T, C).
     """
-    T, B, C = scores_all.shape
-    quant_dim = len(q)
-
-    embeddings = np.zeros((T, C, quant_dim))
-    cts = np.zeros(T)
+    T = scores_all.shape[0]
+    embeddings = []
+    cts = []
 
     for task in range(T):
-        for cls in range(C):
-            cls_mask = labels == cls
-            cls_scores = scores_all[task, cls_mask, cls]
-            if cls_scores.size > 0:
-                embeddings[task, cls] = quantile_embedding(cls_scores, q)
-        cts[task] = np.sum(labels < C)
+        if return_cts:
+            task_embeddings, task_cts = embed_all_classes(
+                scores_all[task], labels[task], q=q, return_cts=True
+            )
+            cts.append(task_cts)
+        else:
+            task_embeddings = embed_all_classes(
+                scores_all[task], labels[task], q=q, return_cts=False
+            )
+        embeddings.append(task_embeddings)
 
     return (embeddings, cts) if return_cts else embeddings

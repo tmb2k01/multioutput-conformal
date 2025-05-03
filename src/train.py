@@ -1,15 +1,15 @@
+import json
 from typing import Union
 
-import json
 import numpy as np
 import pytorch_lightning as pl
 import torch
-import wandb
 
+import wandb
+from src.calibration.calibration import calibration
 from src.data.multi_output_dataset import MultiOutputDataModule
 from src.models.high_level_model import HighLevelModel
 from src.models.low_level_model import LowLevelModel
-from src.calibration.calibration import calibration
 
 # MDC Dataset properties
 MDC_COLOR = 12
@@ -47,7 +47,7 @@ def train_model(
     datamodule.setup()
     model = model(task_num_classes=task_num_classes)
     wandb_logger = pl.loggers.WandbLogger(
-        project=f"{filename}",
+        project=f"{filename}-model",
     )
     early_stopping = pl.callbacks.EarlyStopping(
         monitor="val_acc",
@@ -58,7 +58,7 @@ def train_model(
     checkpoint = pl.callbacks.ModelCheckpoint(
         monitor="val_acc",
         dirpath="models/",
-        filename=filename,
+        filename=f"{filename}-model",
         save_top_k=1,
         save_weights_only=False,
         mode="max",
@@ -75,22 +75,23 @@ def train_model(
     model.eval()
     trainer = pl.Trainer(accelerator="gpu")
     calib_preds = trainer.predict(model, dataloaders=datamodule.calib_dataloader())
+    true_labels = [labels for _, labels in datamodule.datasets["calib"]]
 
     q_hats = calibration(
         calib_preds,
+        true_labels,
         high_level=isinstance(model, HighLevelModel),
         alpha=alpha,
         clusters=calibration_clusters,
     )
 
-    # Save the calibration result to JSON
-    with open(f"models/{filename}_calibration.json", "w") as f:
+    with open(f"models/{filename}-calibration.json", "w") as f:
         json.dump(convert_numpy_to_native(q_hats), f, indent=2)
 
 
 def train():
     print(f"Is CUDA available: {torch.cuda.is_available()}")
     wandb.login()
-    train_model("data", "mdc-high-level-model", MDC_TASK_NUM_CLASSES, HighLevelModel)
+    train_model("data", "mdc-high-level", MDC_TASK_NUM_CLASSES, HighLevelModel)
 
-    train_model("data", "mdc-low-level-model", MDC_TASK_NUM_CLASSES, LowLevelModel)
+    train_model("data", "mdc-low-level", MDC_TASK_NUM_CLASSES, LowLevelModel)

@@ -80,6 +80,11 @@ class HighLevelModel(pl.LightningModule):
         outputs = [classifier(features) for classifier in self.classifiers]
         return outputs
 
+    def predict_step(self, batch, batch_idx, dataloader_idx=0):
+        x, _ = batch
+        outputs = self(x)
+        return [torch.softmax(out, dim=1) for out in outputs]
+
     def shared_step(self, batch, stage, accuracy=False):
         """
         Shared logic for training and validation steps.
@@ -95,7 +100,9 @@ class HighLevelModel(pl.LightningModule):
         x, targets = batch
         outputs = self(x)
 
-        losses = [self.loss_fn(out, target) for out, target in zip(outputs, targets)]
+        targets = targets.T  # shape [T, B]
+        losses = [self.loss_fn(out, targets[i]) for i, out in enumerate(outputs)]
+
         total_loss = sum(losses)
         self.log(f"{stage}_loss", total_loss)
 

@@ -82,6 +82,10 @@ class LowLevelModel(pl.LightningModule):
         output = self.classifier(features)
         return output
 
+    def predict_step(self, batch, batch_idx, dataloader_idx=0):
+        x, _ = batch
+        return self(x)
+
     def encode_targets(self, targets):
         """
         Transforms multi-task targets into a single joint class ID.

@@ -1,6 +1,7 @@
 import os
 
 import pytorch_lightning as pl
+import torch
 import torchvision.transforms.functional as TF
 from PIL import Image
 from torch.utils.data import DataLoader, Dataset
@@ -86,7 +87,7 @@ class MultiOutputDataset(Dataset):
         if self.transform:
             image = self.transform(image)
 
-        return image, tuple(labels)
+        return image, torch.tensor(labels)
 
 
 class MultiOutputDataModule(pl.LightningDataModule):
@@ -134,6 +135,13 @@ class MultiOutputDataModule(pl.LightningDataModule):
             root_dir=os.path.join(self.root_dir, "calib"),
             task_num_classes=self.task_num_classes,
         )
+
+        self.datasets = {
+            "train": self.train_dataset,
+            "valid": self.val_dataset,
+            "test": self.test_dataset,
+            "calib": self.calib_dataset,
+        }
 
     def train_dataloader(self):
         """Returns the training DataLoader."""
