@@ -9,6 +9,10 @@ if [ ! -f "data/MDC_dataset.tar.gz" ]; then
 fi
 tar -xzf data/MDC_dataset.tar.gz -C data
 
+if [ -d "venv" ]; then
+    source venv/bin/activate
+fi
+
 if command -v python &>/dev/null; then
     python scripts/prepare-dataset.py
 else

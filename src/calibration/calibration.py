@@ -8,6 +8,43 @@ from src.calibration.calibration_utils import (
 )
 from src.calibration.nonconformity_functions import NONCONFORMITY_FN_DIC
 
+def compute_gt_nonconformity(
+        scores: Union[List[np.ndarray], np.ndarray],
+        labels: np.ndarray,
+    ) -> Dict[str, Union[np.ndarray, List[np.ndarray]]]:
+        """
+        Compute nonconformity scores for the given scores, then return only the ground truth scores.
+        Args:
+            scores (Union[List[np.ndarray], np.ndarray]): The model prediction scores.
+                - Shape (T, B, C) for multiple tasks.
+                - Shape (B, C) for a single task.
+            labels (np.ndarray): True class labels.
+                - Shape (T, B) for multiple tasks.
+                - Shape (B,) for a single task.
+        Returns:
+            Dict[str, np.ndarray]: A dictionary of nonconformity scores.
+                Each key corresponds to a nonconformity function and the value is the computed score.
+                - Shape (B,) for a single task.
+                - Shape (T, B) for multiple tasks.
+        """
+        nonconformity_scores = {}
+
+        for name, fn in NONCONFORMITY_FN_DIC.items():
+            if isinstance(scores, list):
+                # Multi-task: iterate per task
+                taskwise = []
+                for task_score, task_label in zip(scores, labels):
+                    full_scores = fn(task_score)  # (B, C_t)
+                    gt_scores = full_scores[np.arange(task_score.shape[0]), task_label]  # (B,)
+                    taskwise.append(gt_scores)
+                nonconformity_scores[name] = np.stack(taskwise)  # shape (T, B)
+            else:
+                # Single-task
+                full_scores = fn(scores)  # (B, C)
+                gt_scores = full_scores[np.arange(scores.shape[0]), labels]  # (B,)
+                nonconformity_scores[name] = gt_scores  # shape (B,)
+
+        return nonconformity_scores
 
 def calibration(
     scores: Union[List[np.ndarray], np.ndarray],
@@ -38,32 +75,7 @@ def calibration(
                          }
                          Each q-hat is of shape (C,) or (T, C) depending on input.
     """
-
-    def compute_nonconformity(
-        scores: Union[List[np.ndarray], np.ndarray],
-    ) -> Dict[str, Union[np.ndarray, List[np.ndarray]]]:
-        """
-        Compute nonconformity scores for the given scores.
-        Args:
-            scores (Union[List[np.ndarray], np.ndarray]): The model prediction scores.
-                - Shape (B, C) or (T, B, C) for multiple tasks.
-                - Shape (B, C) for a single task.
-        Returns:
-            Dict[str, Union[np.ndarray, List[np.ndarray]]]: A dictionary of nonconformity scores.
-                Each key corresponds to a nonconformity function and the value is the computed score.
-                - Shape (B, C) for a single task.
-                - Shape (T, B, C) for multiple tasks.
-        """
-        return {
-            nonconformity_name: (
-                [nonconformity_fn(task_scores) for task_scores in scores]
-                if isinstance(scores, list)
-                else nonconformity_fn(scores)
-            )
-            for nonconformity_name, nonconformity_fn in NONCONFORMITY_FN_DIC.items()
-        }
-
-    nonconformity_scores = compute_nonconformity(scores)
+    nonconformity_scores = compute_gt_nonconformity(scores, true_labels)
 
     q_hats = {}
     for calibration_type, calibration_fn in (

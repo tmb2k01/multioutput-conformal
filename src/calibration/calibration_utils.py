@@ -24,16 +24,18 @@ def get_conformal_quantile(scores: np.ndarray, alpha: float) -> float:
     val = np.ceil((n + 1) * (1 - alpha)) / n
     if val > 1:
         return np.inf
+    
     try:
         qhat = np.quantile(scores, val, method="inverted_cdf")
     except TypeError:
         # For older numpy versions
-        qhat = np.quantile(scores, val, interpolation="lower")
+        sorted_scores = np.sort(scores)
+        qhat = np.quantile(sorted_scores, val, interpolation="lower")
     return qhat
 
 
 def compute_qhat_scp_global(
-    nonconformity_scores: Union[List[np.ndarray], np.ndarray],
+    nonconformity_scores: np.ndarray,
     true_labels: np.ndarray,
     alpha: float,
     **kwargs,
@@ -42,55 +44,33 @@ def compute_qhat_scp_global(
     Compute the q-hat value for the Standard Conformal Prediction global calibration method.
 
     Args:
-        nonconformity_scores (Union[List[np.ndarray], np.ndarray]):
-            List of (B, C_t) arrays for T tasks or a single (B, C) array.
-        true_labels (np.ndarray): Array of shape (T, B) or (B,) for multi-task or single-task setting.
+        nonconformity_scores (np.ndarray): Nonconformity scores of the ground truth labels with shape
+                                           (T, B) or (B,) for multi-task or single-task setting.
+        true_labels (np.ndarray): Ground truth labels with shape (T, B) or (B,) for multi-task or single-task setting.
         alpha (float): Miscoverage level.
         **kwargs: Ignored.
 
     Returns:
         float: Global conformal quantile (q-hat).
     """
-    if isinstance(nonconformity_scores, list):
-        assert (
-            true_labels.ndim == 2
-        ), "true_labels must be shape (T, B) for multi-task input."
-        assert (
-            len(nonconformity_scores) == true_labels.shape[0]
-        ), "Mismatch in number of tasks."
+    assert (
+        nonconformity_scores.shape == true_labels.shape
+    ), "Mismatch in shape between nonconformity scores and true labels."
+    assert nonconformity_scores.ndim in (
+        1,
+        2,
+    ), "Input dimension error - nonconformity_scores must be 1D (B,) or 2D (T, B)."
 
-        all_scores = []
-        for task_idx, (scores_t, labels_t) in enumerate(
-            zip(nonconformity_scores, true_labels)
-        ):
-            assert (
-                scores_t.shape[0] == labels_t.shape[0]
-            ), f"Mismatch in batch size for task {task_idx}."
-            task_true_scores = np.take_along_axis(
-                scores_t, np.expand_dims(labels_t, axis=1), axis=1
-            ).squeeze(axis=1)
-            all_scores.append(task_true_scores)
-
-        concatenated_scores = np.concatenate(all_scores)
-        return get_conformal_quantile(concatenated_scores, alpha)
-
+    if nonconformity_scores.ndim == 2:
+        all_scores = nonconformity_scores.reshape(-1)
     else:
-        assert true_labels.ndim == 1, "true_labels must be 1D for single-task input."
-        assert (
-            nonconformity_scores.ndim == 2
-        ), "nonconformity_scores must be (B, C) for single-task."
-        assert (
-            true_labels.shape[0] == nonconformity_scores.shape[0]
-        ), "Batch size mismatch."
+        all_scores = nonconformity_scores
 
-        true_scores = np.take_along_axis(
-            nonconformity_scores, np.expand_dims(true_labels, axis=1), axis=1
-        ).squeeze(axis=1)
-        return get_conformal_quantile(true_scores, alpha)
+    return get_conformal_quantile(all_scores, alpha)
 
 
 def compute_qhat_scp_task(
-    nonconformity_scores: List[np.ndarray],
+    nonconformity_scores: np.ndarray,
     true_labels: np.ndarray,
     alpha: float,
     **kwargs,
@@ -99,40 +79,26 @@ def compute_qhat_scp_task(
     Compute the q-hat value for the Standard Conformal Prediction task-wise calibration method.
 
     Args:
-        nonconformity_scores (List[np.ndarray]): List of nonconformity scores. Each element has shape (B, C_t).
-        true_labels (np.ndarray): Array of shape (T, B) with true labels per task.
+        nonconformity_scores (np.ndarray): Nonconformity scores of the ground truth labels with shape (T, B).
+        true_labels (np.ndarray): Ground truth labels with shape (T, B) with true labels per task.
         alpha (float): Miscoverage level.
         **kwargs: Ignored.
 
     Returns:
         np.ndarray: Array of q-hat values, one per task. Shape (T,)
     """
-    assert isinstance(
-        nonconformity_scores, list
-    ), "nonconformity_scores must be a list of arrays."
-    assert true_labels.ndim == 2, "true_labels must be 2D (T, B)."
     assert (
-        len(nonconformity_scores) == true_labels.shape[0]
-    ), "Mismatch in number of tasks."
+        nonconformity_scores.shape == true_labels.shape
+    ), "Mismatch in shape between nonconformity scores and true labels."
+    assert (
+        nonconformity_scores.ndim == 2
+    ), "Input dimension error - nonconformity_scores must be 2D (T, B)."
 
-    qhats = []
-    for task_idx, (scores_t, labels_t) in enumerate(
-        zip(nonconformity_scores, true_labels)
-    ):
-        assert (
-            scores_t.shape[0] == labels_t.shape[0]
-        ), f"Batch size mismatch for task {task_idx}."
-        true_scores = np.take_along_axis(
-            scores_t, np.expand_dims(labels_t, axis=1), axis=1
-        ).squeeze(axis=1)
-        qhat = get_conformal_quantile(true_scores, alpha)
-        qhats.append(qhat)
-
-    return np.array(qhats)
+    return np.apply_along_axis(get_conformal_quantile, 1, nonconformity_scores, alpha)
 
 
 def compute_qhat_ccp_class(
-    nonconformity_scores: Union[List[np.ndarray], np.ndarray],
+    nonconformity_scores: np.ndarray,
     true_labels: np.ndarray,
     alpha: float,
     **kwargs,
@@ -141,73 +107,52 @@ def compute_qhat_ccp_class(
     Compute the q-hat values for the CCP class-wise calibration method.
 
     Args:
-        nonconformity_scores (Union[List[np.ndarray], np.ndarray]): Nonconformity scores.
-            - If np.ndarray: shape (B, C) or (B,)
-            - If List[np.ndarray]: each of shape (B, C_t) or (B,) for T tasks.
-        true_labels (np.ndarray): True labels, shape (B,) or (T, B).
+        nonconformity_scores (np.ndarray): Nonconformity scores of the ground truth labels with shape
+                                           (T, B) or (B,) for multi-task or single-task setting.
+        true_labels (np.ndarray): Ground truth labels with shape (T, B) or (B,) for multi-task or single-task setting.
         alpha (float): Miscoverage level.
 
     Returns:
-        Union[np.ndarray, List[np.ndarray]]: Classwise q-hat values (or global if GT-only).
+        Union[np.ndarray, List[np.ndarray]]: Classwise q-hat values. Shape (T, C) for multi-task or (C,) for single-task.
     """
 
     def vectorized_qhat(task_scores: np.ndarray, task_labels: np.ndarray) -> np.ndarray:
-        if task_scores.ndim == 1:
-            # GT-only case (B,)
-            n = len(task_scores)
-            k = int(np.ceil((n + 1) * (1 - alpha)))
-            if k > n:
-                return np.array([np.inf])
-            try:
-                return np.array(
-                    [np.nanquantile(task_scores, k / n, method="inverted_cdf")]
-                )
-            except TypeError:
-                return np.array(
-                    [np.nanquantile(task_scores, k / n, interpolation="lower")]
-                )
+        """
+        Compute q-hat for a single task using vectorized operations.
 
-        B, C = task_scores.shape
-        mask = task_labels[:, None] == np.arange(C)[None, :]
-        selected_scores = np.where(mask, task_scores, np.nan)
-        n_valid = np.sum(~np.isnan(selected_scores), axis=0)
-        val = np.ceil((n_valid + 1) * (1 - alpha)) / n_valid
+        Args:
+            task_scores (np.ndarray): Nonconformity scores for the task.
+            task_labels (np.ndarray): True labels for the task.
 
-        qhat_per_class = np.full(C, np.inf)
-        for c in range(C):
-            if n_valid[c] == 0 or val[c] > 1:
-                qhat_per_class[c] = np.inf
-            else:
-                try:
-                    qhat_per_class[c] = np.nanquantile(
-                        selected_scores[:, c], val[c], method="inverted_cdf"
-                    )
-                except TypeError:
-                    qhat_per_class[c] = np.nanquantile(
-                        selected_scores[:, c], val[c], interpolation="lower"
-                    )
-        return qhat_per_class
+        Returns:
+            np.ndarray: q-hat values for the task.
+        """
+        unique_classes = np.unique(task_labels)
+        n_classes = unique_classes.max() + 1
+        qhats = np.full(n_classes, np.inf)
 
-    if isinstance(nonconformity_scores, list):
-        assert (
-            true_labels.ndim == 2
-        ), "Expected true_labels of shape (T, B) for list input."
-        assert (
-            len(nonconformity_scores) == true_labels.shape[0]
-        ), "Mismatch in number of tasks."
+        for c in unique_classes:
+            class_mask = task_labels == c
+            class_scores = task_scores[class_mask]
+            if class_scores.size > 0:
+                qhats[c] = get_conformal_quantile(class_scores, alpha)
 
+        return qhats
+
+    assert (
+        nonconformity_scores.shape == true_labels.shape
+    ), "Mismatch in shape between nonconformity scores and true labels."
+    assert nonconformity_scores.ndim in (
+        1,
+        2,
+    ), "Input dimension error - nonconformity_scores must be 1D (B,) or 2D (T, B)."
+    if nonconformity_scores.ndim == 2:
         return [
             vectorized_qhat(scores_t, labels_t)
             for scores_t, labels_t in zip(nonconformity_scores, true_labels)
         ]
 
     else:
-        assert isinstance(
-            nonconformity_scores, np.ndarray
-        ), "Expected np.ndarray or list of np.ndarray."
-        assert (
-            true_labels.ndim == 1
-        ), "Expected true_labels of shape (B,) for single-task input."
         return vectorized_qhat(nonconformity_scores, true_labels)
 
 
@@ -412,8 +357,8 @@ CALIBRATION_FN_HIGH_DIC: Dict[str, Callable[..., float]] = {
     "scp_global_threshold": compute_qhat_scp_global,
     "scp_task_thresholds": compute_qhat_scp_task,
     "ccp_class_thresholds": compute_qhat_ccp_class,
-    "ccp_task_cluster_thresholds": compute_qhat_ccp_task_cluster,
-    "ccp_global_cluster_thresholds": compute_qhat_ccp_global_cluster,
+    #    "ccp_task_cluster_thresholds": compute_qhat_ccp_task_cluster,
+    #    "ccp_global_cluster_thresholds": compute_qhat_ccp_global_cluster,
 }
 
 CALIBRATION_FN_LOW_DIC: Dict[str, Callable[..., float]] = {

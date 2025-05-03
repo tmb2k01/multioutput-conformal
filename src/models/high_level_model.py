@@ -82,7 +82,8 @@ class HighLevelModel(pl.LightningModule):
 
     def predict_step(self, batch, batch_idx, dataloader_idx=0):
         x, _ = batch
-        return self(x)
+        outputs = self(x)
+        return [torch.softmax(out, dim=1) for out in outputs]
 
     def shared_step(self, batch, stage, accuracy=False):
         """
