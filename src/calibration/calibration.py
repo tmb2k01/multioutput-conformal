@@ -8,43 +8,47 @@ from src.calibration.calibration_utils import (
 )
 from src.calibration.nonconformity_functions import NONCONFORMITY_FN_DIC
 
+
 def compute_gt_nonconformity(
-        scores: Union[List[np.ndarray], np.ndarray],
-        labels: np.ndarray,
-    ) -> Dict[str, Union[np.ndarray, List[np.ndarray]]]:
-        """
-        Compute nonconformity scores for the given scores, then return only the ground truth scores.
-        Args:
-            scores (Union[List[np.ndarray], np.ndarray]): The model prediction scores.
-                - Shape (T, B, C) for multiple tasks.
-                - Shape (B, C) for a single task.
-            labels (np.ndarray): True class labels.
-                - Shape (T, B) for multiple tasks.
-                - Shape (B,) for a single task.
-        Returns:
-            Dict[str, np.ndarray]: A dictionary of nonconformity scores.
-                Each key corresponds to a nonconformity function and the value is the computed score.
-                - Shape (B,) for a single task.
-                - Shape (T, B) for multiple tasks.
-        """
-        nonconformity_scores = {}
+    scores: Union[List[np.ndarray], np.ndarray],
+    labels: np.ndarray,
+) -> Dict[str, Union[np.ndarray, List[np.ndarray]]]:
+    """
+    Compute nonconformity scores for the given scores, then return only the ground truth scores.
+    Args:
+        scores (Union[List[np.ndarray], np.ndarray]): The model prediction scores.
+            - Shape (T, B, C) for multiple tasks.
+            - Shape (B, C) for a single task.
+        labels (np.ndarray): True class labels.
+            - Shape (T, B) for multiple tasks.
+            - Shape (B,) for a single task.
+    Returns:
+        Dict[str, np.ndarray]: A dictionary of nonconformity scores.
+            Each key corresponds to a nonconformity function and the value is the computed score.
+            - Shape (B,) for a single task.
+            - Shape (T, B) for multiple tasks.
+    """
+    nonconformity_scores = {}
 
-        for name, fn in NONCONFORMITY_FN_DIC.items():
-            if isinstance(scores, list):
-                # Multi-task: iterate per task
-                taskwise = []
-                for task_score, task_label in zip(scores, labels):
-                    full_scores = fn(task_score)  # (B, C_t)
-                    gt_scores = full_scores[np.arange(task_score.shape[0]), task_label]  # (B,)
-                    taskwise.append(gt_scores)
-                nonconformity_scores[name] = np.stack(taskwise)  # shape (T, B)
-            else:
-                # Single-task
-                full_scores = fn(scores)  # (B, C)
-                gt_scores = full_scores[np.arange(scores.shape[0]), labels]  # (B,)
-                nonconformity_scores[name] = gt_scores  # shape (B,)
+    for name, fn in NONCONFORMITY_FN_DIC.items():
+        if isinstance(scores, list):
+            # Multi-task: iterate per task
+            taskwise = []
+            for task_score, task_label in zip(scores, labels):
+                full_scores = fn(task_score)  # (B, C_t)
+                gt_scores = full_scores[
+                    np.arange(task_score.shape[0]), task_label
+                ]  # (B,)
+                taskwise.append(gt_scores)
+            nonconformity_scores[name] = np.stack(taskwise)  # shape (T, B)
+        else:
+            # Single-task
+            full_scores = fn(scores)  # (B, C)
+            gt_scores = full_scores[np.arange(scores.shape[0]), labels]  # (B,)
+            nonconformity_scores[name] = gt_scores  # shape (B,)
 
-        return nonconformity_scores
+    return nonconformity_scores
+
 
 def calibration(
     scores: Union[List[np.ndarray], np.ndarray],
@@ -84,10 +88,10 @@ def calibration(
         else CALIBRATION_FN_LOW_DIC.items()
     ):
         for nonconformity_name in NONCONFORMITY_FN_DIC.keys():
-            if calibration_type not in q_hats:
-                q_hats[calibration_type] = {}
+            if nonconformity_name not in q_hats:
+                q_hats[nonconformity_name] = {}
 
-            q_hats[calibration_type][nonconformity_name] = calibration_fn(
+            q_hats[nonconformity_name][calibration_type] = calibration_fn(
                 nonconformity_scores[nonconformity_name], true_labels, alpha, **kwargs
             )
 
