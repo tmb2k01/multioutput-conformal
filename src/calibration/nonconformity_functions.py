@@ -86,16 +86,14 @@ def _pip_score(
     def compute_pip(s: np.ndarray) -> np.ndarray:
         B, C = s.shape
         hinge = 1 - s
-        pip = np.zeros_like(hinge)
+        sorted_indices = np.argsort(s, axis=1)[:, ::-1]
+        sorted_probs = np.take_along_axis(s, sorted_indices, axis=1)
+        cum_penalty = np.cumsum(sorted_probs / np.arange(1, C + 1), axis=1)
+        # Map each class to its rank and gather penalties
+        ranks = np.argsort(sorted_indices, axis=1)
+        penalties = np.take_along_axis(cum_penalty, ranks, axis=1)
 
-        for i in range(B):
-            sorted_indices = np.argsort(s[i])[::-1]
-            sorted_probs = s[i][sorted_indices]
-            cum_penalty = np.cumsum(sorted_probs / np.arange(1, C + 1))
-            for j in range(C):
-                class_rank = np.where(sorted_indices == j)[0][0]
-                pip[i, j] = hinge[i, j] + cum_penalty[class_rank]
-        return pip
+        return hinge + penalties
 
     if isinstance(softmax, list):
         return [compute_pip(s) for s in softmax]
