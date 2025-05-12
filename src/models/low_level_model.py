@@ -84,7 +84,8 @@ class LowLevelModel(pl.LightningModule):
 
     def predict_step(self, batch, batch_idx, dataloader_idx=0):
         x, _ = batch
-        return self(x)
+        output = self(x)
+        return torch.softmax(output, dim=1)
 
     def encode_targets(self, targets):
         """
