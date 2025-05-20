@@ -1,4 +1,5 @@
 import json
+import math
 from typing import Union
 
 import numpy as np
@@ -10,6 +11,7 @@ from src.calibration.calibration import calibration
 from src.data.multi_output_dataset import MultiOutputDataModule
 from src.models.high_level_model import HighLevelModel
 from src.models.low_level_model import LowLevelModel
+from src.models.model_utils import convert_multitask_preds
 
 # MDC Dataset properties
 MDC_COLOR = 12
@@ -28,6 +30,58 @@ def convert_numpy_to_native(obj):
         return [convert_numpy_to_native(x) for x in obj]
     else:
         return obj
+
+
+def calibrate_model(
+    model: Union[HighLevelModel, LowLevelModel],
+    datamodule: MultiOutputDataModule,
+    load_preds: bool = False,
+    alpha: float = 0.05,
+    clusters=None,
+):
+    high_level = isinstance(model, HighLevelModel)
+    level = "high" if high_level else "low"
+    preds_path = f"./models/mdc-{level}-model-calibpreds.npz"
+
+    if load_preds:
+        loaded = np.load(preds_path)
+        calib_preds = [loaded[key] for key in loaded.files]
+        if not high_level:
+            calib_preds = np.array(calib_preds)
+    else:
+        model.eval()
+        trainer = pl.Trainer(accelerator="gpu")
+        preds = trainer.predict(model, dataloaders=datamodule.calib_dataloader())
+
+        if high_level:
+            calib_preds = convert_multitask_preds(preds)
+        else:
+            calib_preds = np.concatenate(preds, axis=0)
+            calib_preds = np.array(calib_preds)
+
+        np.savez(preds_path, *calib_preds)
+
+    true_labels = np.stack(
+        [labels for _, labels in datamodule.datasets["calib"]], axis=1
+    )
+
+    if not high_level:
+        task_classes = datamodule.task_num_classes
+        multiplier = np.array(
+            [math.prod(task_classes[i + 1 :]) for i in range(len(task_classes))]
+        )
+        true_labels = (true_labels * multiplier[:, None]).sum(axis=0)
+
+    q_hats = calibration(
+        calib_preds,
+        true_labels,
+        high_level=high_level,
+        alpha=alpha,
+        clusters=clusters,
+    )
+
+    with open(f"./models/mdc-{level}-level-calibration.json", "w") as f:
+        json.dump(convert_numpy_to_native(q_hats), f, indent=2)
 
 
 def train_model(
@@ -74,19 +128,14 @@ def train_model(
     # Calibration logic goes here
     model.eval()
     trainer = pl.Trainer(accelerator="gpu")
-    calib_preds = trainer.predict(model, dataloaders=datamodule.calib_dataloader())
-    true_labels = [labels for _, labels in datamodule.datasets["calib"]]
 
-    q_hats = calibration(
-        calib_preds,
-        true_labels,
-        high_level=isinstance(model, HighLevelModel),
+    calibrate_model(
+        model,
+        datamodule,
+        load_preds=True,
         alpha=alpha,
         clusters=calibration_clusters,
     )
-
-    with open(f"models/{filename}-calibration.json", "w") as f:
-        json.dump(convert_numpy_to_native(q_hats), f, indent=2)
 
 
 def train():

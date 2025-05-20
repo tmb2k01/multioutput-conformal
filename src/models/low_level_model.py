@@ -82,24 +82,36 @@ class LowLevelModel(pl.LightningModule):
         output = self.classifier(features)
         return output
 
-    def predict_step(self, batch, batch_idx, dataloader_idx=0):
-        x, _ = batch
-        return self(x)
+    def predict_step(self, input):
+        output = self(input)
+        return torch.softmax(output, dim=1)
 
     def encode_targets(self, targets):
         """
         Transforms multi-task targets into a single joint class ID.
 
         Args:
-            targets (List[Tensor]): List of tensors, each representing a task label.
+            targets (Tensor or List[Tensor]): Either a (B, T) tensor or list of Tensors of shape (B,).
 
         Returns:
-            Tensor: Encoded target vector (batch_size,).
+            Tensor: Encoded target vector (B,).
         """
-        targets = torch.stack(targets, dim=1)  # [batch_size, num_tasks]
+        # If input is a single Tensor of shape (B, T), use it directly
+        if isinstance(targets, torch.Tensor):
+            if targets.dim() == 2:
+                pass  # already correct shape
+            else:
+                raise ValueError(f"Expected targets of shape (B, T), got shape {targets.shape}")
+        # If input is a list or tuple of Tensors, stack along the last dim
+        elif isinstance(targets, (list, tuple)):
+            targets = torch.stack(targets, dim=1)
+        else:
+            raise TypeError(f"Unsupported target type: {type(targets)}")
+
         targets = targets.to(self.multipliers.device)
         target = (targets * self.multipliers).sum(dim=1).long()
         return target
+
 
     def decode_targets(self, joint_class):
         """

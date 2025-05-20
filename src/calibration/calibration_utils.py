@@ -167,7 +167,7 @@ def compute_qhat_ccp_task_cluster(
 ) -> dict:
     """
     Compute q-hat values per task using Clustered Conformal Prediction (CCP).
-    
+
     Args:
         nonconformity_scores (np.ndarray): Nonconformity scores of the ground truth labels with shape (T, B).
         true_labels (np.ndarray): Ground truth labels with shape (T, B) with true labels per task.
@@ -175,7 +175,7 @@ def compute_qhat_ccp_task_cluster(
         n_clusters (int): The number of clusters per task.
         cluster_method (str): Clustering method: "kmeans" or "hierarchical".
         q (Tuple[float]): Quantiles for class embeddings.
-    
+
     Returns:
         dict: {
             'task-0': {'mapping': np.ndarray, 'qhats': np.ndarray},
@@ -184,7 +184,9 @@ def compute_qhat_ccp_task_cluster(
         }
     """
     assert true_labels.ndim == 2, "Expected true_labels of shape (T, B)"
-    assert nonconformity_scores.shape == true_labels.shape, "Shape mismatch between scores and labels."
+    assert (
+        nonconformity_scores.shape == true_labels.shape
+    ), "Shape mismatch between scores and labels."
 
     T = nonconformity_scores.shape[0]
     result = {}
@@ -202,7 +204,9 @@ def compute_qhat_ccp_task_cluster(
         if cluster_method == "kmeans":
             clusterer = KMeans(n_clusters=n_task_clusters, random_state=0)
         elif cluster_method == "hierarchical":
-            clusterer = AgglomerativeClustering(n_clusters=n_task_clusters, linkage="ward")
+            clusterer = AgglomerativeClustering(
+                n_clusters=n_task_clusters, linkage="ward"
+            )
         else:
             raise ValueError(f"Unsupported clustering method: {cluster_method}")
 

@@ -1,66 +1,104 @@
-from typing import Callable, Dict
+from typing import Callable, Dict, List, Union
 
 import numpy as np
 
 
-def _hinge_loss(softmax: np.ndarray) -> np.ndarray:
+def _hinge_loss(
+    softmax: Union[np.ndarray, List[np.ndarray]],
+) -> Union[np.ndarray, List[np.ndarray]]:
     """
     Computes the hinge loss nonconformity score for all classes.
 
     The hinge loss for a class is defined as 1 minus the predicted probability assigned to that class.
 
     Args:
-        softmax (np.ndarray): Predicted softmax probabilities. Shape (B, C).
+        softmax (Union[np.ndarray, List[np.ndarray]]): Predicted softmax probabilities.
+            - Shape (B, C) for single-task, where B is the batch size and C is the number of classes.
+            - List of arrays for multi-task, each of shape (B, C_t).
 
     Returns:
-        np.ndarray: Hinge loss values for each class. Shape (B, C).
+        np.ndarray: Hinge loss values for each class.
+            - Shape (B, C) for single-task.
+            - List of arrays for multi-task, each of shape (B, C_t).
     """
-    return 1 - softmax
+    if isinstance(softmax, list):
+        return [1 - s for s in softmax]
+    else:
+        return 1 - softmax
 
 
-def _margin_score(softmax: np.ndarray) -> np.ndarray:
+def _margin_score(
+    softmax: Union[np.ndarray, List[np.ndarray]],
+) -> Union[np.ndarray, List[np.ndarray]]:
     """
     Computes the margin nonconformity score for all classes.
 
-    The margin for each class is defined as (highest incorrect class probability - class probability).
+    The margin for each class is defined as the highest incorrect class probability
+    minus the predicted probability for that class.
 
     Args:
-        softmax (np.ndarray): Predicted softmax probabilities. Shape (B, C).
+        softmax (Union[np.ndarray, List[np.ndarray]]): Predicted softmax probabilities.
+            - Shape (B, C) for single-task, where B is the batch size and C is the number of classes.
+            - List of arrays for multi-task, each of shape (B, C_t).
 
     Returns:
-        np.ndarray: Margin scores for each class. Shape (B, C).
+        Union[np.ndarray, List[np.ndarray]]: Margin scores for each class.
+            - Shape (B, C) for single-task.
+            - List of arrays for multi-task, each of shape (B, C_t).
     """
-    B, C = softmax.shape
-    margins = np.empty((B, C))
-    for j in range(C):
-        mask = np.ones(C, dtype=bool)
-        mask[j] = False
-        margins[:, j] = np.max(softmax[:, mask], axis=1) - softmax[:, j]
-    return margins
+
+    def compute_margin(s: np.ndarray) -> np.ndarray:
+        B, C = s.shape
+        margins = np.empty((B, C))
+        for j in range(C):
+            mask = np.ones(C, dtype=bool)
+            mask[j] = False
+            margins[:, j] = np.max(s[:, mask], axis=1) - s[:, j]
+        return margins
+
+    if isinstance(softmax, list):
+        return [compute_margin(s) for s in softmax]
+    else:
+        return compute_margin(softmax)
 
 
-def _pip_score(softmax: np.ndarray) -> np.ndarray:
+def _pip_score(
+    softmax: Union[np.ndarray, List[np.ndarray]],
+) -> Union[np.ndarray, List[np.ndarray]]:
     """
     Computes the PIP (Penalized Inverse Probability) nonconformity score for all classes.
 
-    The PIP score for each class is the hinge loss plus a penalization based on the ranks of incorrect classes.
+    The PIP score for each class is defined as 1 minus the predicted probability,
+    plus a penalty term based on the cumulative inverse-rank weighted probabilities
+    of the top-ranked classes (excluding the current class).
 
     Args:
-        softmax (np.ndarray): Predicted softmax probabilities. Shape (B, C).
+        softmax (Union[np.ndarray, List[np.ndarray]]): Predicted softmax probabilities.
+            - Shape (B, C) for single-task, where B is the batch size and C is the number of classes.
+            - List of arrays for multi-task, each of shape (B, C_t).
 
     Returns:
-        np.ndarray: PIP scores for each class.Shape (B, C).
+        Union[np.ndarray, List[np.ndarray]]: PIP scores for each class.
+            - Shape (B, C) for single-task.
+            - List of arrays for multi-task, each of shape (B, C_t).
     """
-    hinge = 1 - softmax
-    sorted_softmax = np.sort(softmax, axis=1)[:, ::-1]
-    penalizations = np.zeros_like(hinge)
-    for i in range(softmax.shape[0]):
-        for rank in range(1, softmax.shape[1]):
-            penalizations[i, rank] = np.sum(
-                sorted_softmax[i, :rank] / np.arange(1, rank + 1)
-            )
 
-    return hinge + penalizations
+    def compute_pip(s: np.ndarray) -> np.ndarray:
+        B, C = s.shape
+        hinge = 1 - s
+        sorted_indices = np.argsort(s, axis=1)[:, ::-1]
+        sorted_probs = np.take_along_axis(s, sorted_indices, axis=1)
+        cum_penalty = np.cumsum(sorted_probs / np.arange(1, C + 1), axis=1)
+        # Map each class to its rank and gather penalties
+        ranks = np.argsort(sorted_indices, axis=1)
+        penalties = np.take_along_axis(cum_penalty, ranks, axis=1)
+
+        return hinge + penalties
+
+    if isinstance(softmax, list):
+        return [compute_pip(s) for s in softmax]
+    else:
+        return compute_pip(softmax)
 
 
 # Dictionary mapping names to nonconformity functions
