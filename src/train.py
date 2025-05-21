@@ -13,10 +13,10 @@ from src.models.high_level_model import HighLevelModel
 from src.models.low_level_model import LowLevelModel
 from src.models.model_utils import convert_multitask_preds
 
-# MDC Dataset properties
-MDC_COLOR = 12
-MDC_TYPE = 11
-MDC_TASK_NUM_CLASSES = [MDC_COLOR, MDC_TYPE]
+# SGVehicle Dataset properties
+SGVEHICLE_COLOR = 12
+SGVEHICLE_TYPE = 11
+SGVEHICLE_TASK_NUM_CLASSES = [SGVEHICLE_COLOR, SGVEHICLE_TYPE]
 
 
 def convert_numpy_to_native(obj):
@@ -41,7 +41,7 @@ def calibrate_model(
 ):
     high_level = isinstance(model, HighLevelModel)
     level = "high" if high_level else "low"
-    preds_path = f"./models/mdc-{level}-model-calibpreds.npz"
+    preds_path = f"./models/sgvehicle-{level}-model-calibpreds.npz"
 
     if load_preds:
         loaded = np.load(preds_path)
@@ -80,7 +80,7 @@ def calibrate_model(
         clusters=clusters,
     )
 
-    with open(f"./models/mdc-{level}-level-calibration.json", "w") as f:
+    with open(f"./models/sgvehicle-{level}-level-calibration.json", "w") as f:
         json.dump(convert_numpy_to_native(q_hats), f, indent=2)
 
 
@@ -141,6 +141,6 @@ def train_model(
 def train():
     print(f"Is CUDA available: {torch.cuda.is_available()}")
     wandb.login()
-    train_model("data", "mdc-high-level", MDC_TASK_NUM_CLASSES, HighLevelModel)
+    train_model("data", "sgvehicle-high-level", SGVEHICLE_TASK_NUM_CLASSES, HighLevelModel)
 
-    train_model("data", "mdc-low-level", MDC_TASK_NUM_CLASSES, LowLevelModel)
+    train_model("data", "sgvehicle-low-level", SGVEHICLE_TASK_NUM_CLASSES, LowLevelModel)
