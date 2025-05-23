@@ -1,10 +1,20 @@
 import os
 import shutil
-
 from sklearn.model_selection import train_test_split
 
-data_dir = "data"
-dataset_dir = os.path.join(data_dir, "Gen_img")
+data_dir = "data/UTKFaces"
+part_dirs = [os.path.join(data_dir, part) for part in ["part1", "part2", "part3"]]
+dataset_dir = os.path.join(data_dir, "merged")
+
+def merge_parts():
+    for part_dir in part_dirs:
+        os.makedirs(dataset_dir, exist_ok=True)
+        for filename in os.listdir(part_dir):
+            src_path = os.path.join(part_dir, filename)
+            dest_path = os.path.join(dataset_dir, filename)
+            if os.path.isfile(src_path):
+                shutil.copy(src_path, dest_path)
+        shutil.rmtree(part_dir)
 
 
 def save_split_data(X_split, y_split, split_name):
@@ -22,22 +32,35 @@ def save_split_data(X_split, y_split, split_name):
 
 def prepare_dataset():
     file_paths = [filename for filename in os.listdir(dataset_dir)]
-    color_labels = []
-    type_labels = []
-    for filename in file_paths:
-        color_labels.append(filename.split("_")[0])
-        type_labels.append(filename.split("_")[1])
-    X = file_paths
-    y = list(zip(color_labels, type_labels))
+    sex_labels = []
+    race_labels = []
+
+    filtered_files = []
+
+    for path in file_paths:
+        filename = os.path.basename(path)
+        try:
+            parts = filename.split("_")
+            sex = parts[1]
+            race = parts[2]
+            sex_labels.append(sex)
+            race_labels.append(race)
+            filtered_files.append(path)
+        except IndexError:
+            print(f"Skipping invalid filename: {filename}")
+
+    X = filtered_files
+    y = list(zip(sex_labels, race_labels))
+
     X_train, X_temp, y_train, y_temp = train_test_split(
         X, y, test_size=0.4, random_state=42
-    )  # 60% train, 40% temp
+    )
     X_val, X_test_cal, y_val, y_test_cal = train_test_split(
         X_temp, y_temp, test_size=0.75, random_state=42
-    )  # 10% val, 30% test+calib
+    )
     X_test, X_calib, y_test, y_calib = train_test_split(
         X_test_cal, y_test_cal, test_size=0.5, random_state=42
-    )  # 15% test, 15% calib
+    )
 
     for split in ["train", "valid", "test", "calib"]:
         os.makedirs(os.path.join(data_dir, split, "images"), exist_ok=True)
@@ -47,9 +70,12 @@ def prepare_dataset():
     save_split_data(X_val, y_val, "valid")
     save_split_data(X_test, y_test, "test")
     save_split_data(X_calib, y_calib, "calib")
+    
+    shutil.rmtree(dataset_dir)
 
 
 def main():
+    merge_parts()
     prepare_dataset()
 
 
