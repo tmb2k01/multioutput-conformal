@@ -1,20 +1,11 @@
+import json
+from itertools import product
+
 import gradio as gr
 from PIL import Image
 
-CONFIG = {
-    "SGVehicle": {
-        "tasks": [
-            {"name": "Color", "classes": ["Blue", "Red", "Yellow"]},
-            {"name": "Type", "classes": ["Car", "Motorcycle", "Truck"]},
-        ]
-    },
-    "UKTFaces": {
-        "tasks": [
-            {"name": "Gender", "classes": ["Male", "Female"]},
-            {"name": "Expression", "classes": ["Happy", "Sad", "Neutral"]},
-        ]
-    },
-}
+CONFIG_SRC = "./static/config.json"
+CONFIG = json.load(open(CONFIG_SRC, "r", encoding="utf-8"))
 
 LOW_CP_TYPES = [
     "Standard CP - Global Threshold",
@@ -30,16 +21,27 @@ HIGH_CP_TYPES = [
 ]
 
 
-def generate_table_data(model_type):
-    """Generate rows: each row = [Task, Class, Score, Threshold]"""
+def generate_table_data(model_type, level="HIGH"):
+    """Generate rows for table based on model level."""
     if model_type not in CONFIG:
         return []
 
     rows = []
-    for task in CONFIG[model_type]["tasks"]:
-        rows.append([f"🔷 {task['name']}", "", "", ""])  # header row for task
-        for cls in task["classes"]:
-            rows.append(["", f"{'🟢 ' if True else ""} {cls}", "-", "-"])
+
+    if level == "HIGH":
+        for task in CONFIG[model_type]["tasks"]:
+            rows.append([f"🔷 {task['name']}", "", "", ""])
+            for cls in task["classes"]:
+                rows.append(["", f"{'🟢 ' if True else ''} {cls}", "-", "-"])
+
+    else:  # LOW level
+        all_class_lists = [task["classes"] for task in CONFIG[model_type]["tasks"]]
+        combined_classes = list(product(*all_class_lists))
+
+        for combo in combined_classes:
+            class_label = " | ".join(combo)
+            rows.append([f"{'🟢 ' if True else ''} {class_label}", "-", "-"])
+
     return rows
 
 
@@ -79,7 +81,6 @@ def launch():
                     interactive=True,
                 )
 
-
         gr.Markdown("# Prediction Results")
         table_output = gr.Dataframe(
             headers=column_names,
@@ -98,10 +99,26 @@ def launch():
                     value=HIGH_CP_TYPES[0],
                 )
 
-        def update_table(model_type):
-            return generate_table_data(model_type)
+        def update_table_and_columns(level, model_type):
+            if level == "LOW":
+                new_columns = ["Class", "Score", "Threshold"]
+            else:
+                new_columns = ["Task", "Class", "Score", "Threshold"]
+
+            new_data = generate_table_data(model_type, level)
+            return gr.update(headers=new_columns, value=new_data)
 
         model_level.change(fn=update_cp_type, inputs=model_level, outputs=cp_type)
-        model_type.change(fn=update_table, inputs=model_type, outputs=table_output)
+
+        model_level.change(
+            fn=update_table_and_columns,
+            inputs=[model_level, model_type],
+            outputs=table_output,
+        )
+        model_type.change(
+            fn=update_table_and_columns,
+            inputs=[model_level, model_type],
+            outputs=table_output,
+        )
 
     interface.launch()
