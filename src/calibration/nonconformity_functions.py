@@ -103,7 +103,7 @@ def _pip_score(
 
 # Dictionary mapping names to nonconformity functions
 NONCONFORMITY_FN_DIC: Dict[str, Callable[..., np.ndarray]] = {
-    "hinge": _hinge_loss,
-    "margin": _margin_score,
-    "pip": _pip_score,
+    "Hinge": _hinge_loss,
+    "Margin": _margin_score,
+    "PiP": _pip_score,
 }
