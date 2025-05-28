@@ -1,5 +1,6 @@
 import json
 import math
+import os
 from typing import Union
 
 import numpy as np
@@ -18,6 +19,10 @@ SGVEHICLE_COLOR = 12
 SGVEHICLE_TYPE = 11
 SGVEHICLE_TASK_NUM_CLASSES = [SGVEHICLE_COLOR, SGVEHICLE_TYPE]
 
+UTKFACE_GENDER = 2
+UTKFACE_RACE = 5
+UTKFACE_TASK_NUM_CLASSES = [UTKFACE_GENDER, UTKFACE_RACE]
+
 
 def convert_numpy_to_native(obj):
     if isinstance(obj, np.ndarray):
@@ -35,31 +40,22 @@ def convert_numpy_to_native(obj):
 def calibrate_model(
     model: Union[HighLevelModel, LowLevelModel],
     datamodule: MultiOutputDataModule,
-    load_preds: bool = False,
+    filename: str,
     alpha: float = 0.05,
-    clusters=None,
+    n_clusters=3,
 ):
     high_level = isinstance(model, HighLevelModel)
     level = "high" if high_level else "low"
-    preds_path = f"./models/sgvehicle-{level}-model-calibpreds.npz"
 
-    if load_preds:
-        loaded = np.load(preds_path)
-        calib_preds = [loaded[key] for key in loaded.files]
-        if not high_level:
-            calib_preds = np.array(calib_preds)
+    model.eval()
+    trainer = pl.Trainer(accelerator="gpu")
+    preds = trainer.predict(model, dataloaders=datamodule.calib_dataloader())
+
+    if high_level:
+        calib_preds = convert_multitask_preds(preds)
     else:
-        model.eval()
-        trainer = pl.Trainer(accelerator="gpu")
-        preds = trainer.predict(model, dataloaders=datamodule.calib_dataloader())
-
-        if high_level:
-            calib_preds = convert_multitask_preds(preds)
-        else:
-            calib_preds = np.concatenate(preds, axis=0)
-            calib_preds = np.array(calib_preds)
-
-        np.savez(preds_path, *calib_preds)
+        calib_preds = np.concatenate(preds, axis=0)
+        calib_preds = np.array(calib_preds)
 
     true_labels = np.stack(
         [labels for _, labels in datamodule.datasets["calib"]], axis=1
@@ -77,10 +73,10 @@ def calibrate_model(
         true_labels,
         high_level=high_level,
         alpha=alpha,
-        clusters=clusters,
+        n_clusters=n_clusters,
     )
 
-    with open(f"./models/sgvehicle-{level}-level-calibration.json", "w") as f:
+    with open(f"./models/{filename}-{level}-level-calibration.json", "w") as f:
         json.dump(convert_numpy_to_native(q_hats), f, indent=2)
 
 
@@ -90,7 +86,7 @@ def train_model(
     task_num_classes,
     model: Union[HighLevelModel, LowLevelModel],
     alpha: float = 0.05,
-    calibration_clusters: Union[None, int] = None,
+    calibration_clusters: Union[None, int] = 3,
 ):
     datamodule = MultiOutputDataModule(
         root_dir=root_dir,
@@ -104,18 +100,18 @@ def train_model(
         project=f"{filename}-model",
     )
     early_stopping = pl.callbacks.EarlyStopping(
-        monitor="val_acc",
+        monitor="val_loss",
         patience=5,
         verbose=True,
-        mode="max",
+        mode="min",
     )
     checkpoint = pl.callbacks.ModelCheckpoint(
-        monitor="val_acc",
+        monitor="val_loss",
         dirpath="models/",
         filename=f"{filename}-model",
         save_top_k=1,
         save_weights_only=False,
-        mode="max",
+        mode="min",
     )
     trainer = pl.Trainer(
         accelerator="gpu",
@@ -132,15 +128,35 @@ def train_model(
     calibrate_model(
         model,
         datamodule,
-        load_preds=True,
+        filename=filename,
         alpha=alpha,
-        clusters=calibration_clusters,
+        n_clusters=calibration_clusters,
     )
+    wandb.finish()
 
 
 def train():
     print(f"Is CUDA available: {torch.cuda.is_available()}")
     wandb.login()
-    train_model("data", "sgvehicle-high-level", SGVEHICLE_TASK_NUM_CLASSES, HighLevelModel)
-
-    train_model("data", "sgvehicle-low-level", SGVEHICLE_TASK_NUM_CLASSES, LowLevelModel)
+    os.makedirs("models", exist_ok=True)
+    train_model(
+        "data/SGVehicle",
+        "sgvehicle-high-level",
+        SGVEHICLE_TASK_NUM_CLASSES,
+        HighLevelModel,
+    )
+    train_model(
+        "data/SGVehicle",
+        "sgvehicle-low-level",
+        SGVEHICLE_TASK_NUM_CLASSES,
+        LowLevelModel,
+    )
+    train_model(
+        "data/UTKFace",
+        "utkface-high-level",
+        UTKFACE_TASK_NUM_CLASSES,
+        HighLevelModel,
+    )
+    train_model(
+        "data/UTKFace", "utkface-low-level", UTKFACE_TASK_NUM_CLASSES, LowLevelModel
+    )

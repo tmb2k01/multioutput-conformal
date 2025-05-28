@@ -21,23 +21,23 @@ fi
 tar -xzf data/SGVEHICLE_dataset.tar.gz -C data/SGVehicle
 
 if command -v python &>/dev/null; then
-    python scripts/download_utkfaces.py
+    python scripts/download_utkface.py
 else
-    python3 scripts/download_utkfaces.py
+    python3 scripts/download_utkface.py
 fi
-if [ ! -d "data/UTKFaces" ]; then
-    mkdir -p data/UTKFaces
+if [ ! -d "data/UTKFace" ]; then
+    mkdir -p data/UTKFace
 fi
-tar -xzf data/UTKFaces_dataset_1.tar.gz -C data/UTKFaces
-tar -xzf data/UTKFaces_dataset_2.tar.gz -C data/UTKFaces
-tar -xzf data/UTKFaces_dataset_3.tar.gz -C data/UTKFaces
+tar -xzf data/UTKFace_dataset_1.tar.gz -C data/UTKFace
+tar -xzf data/UTKFace_dataset_2.tar.gz -C data/UTKFace
+tar -xzf data/UTKFace_dataset_3.tar.gz -C data/UTKFace
 
 
 
 if command -v python &>/dev/null; then
     python scripts/prepare-sgvehicle-dataset.py
-    python scripts/prepare-utkfaces-dataset.py
+    python scripts/prepare-utkface-dataset.py
 else
     python3 scripts/prepare-sgvehicle-dataset.py
-    python3 scripts/prepare-utkfaces-dataset.py
+    python3 scripts/prepare-utkface-dataset.py
 fi

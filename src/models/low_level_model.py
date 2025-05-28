@@ -55,6 +55,7 @@ class LowLevelModel(pl.LightningModule):
         else:
             self.classifier = nn.Sequential(
                 nn.Linear(in_features, 512),
+                nn.BatchNorm1d(512),
                 nn.ReLU(),
                 nn.Dropout(0.5),
                 nn.Linear(512, num_classes),
@@ -82,9 +83,10 @@ class LowLevelModel(pl.LightningModule):
         output = self.classifier(features)
         return output
 
-    def predict_step(self, input):
-        output = self(input)
-        return torch.softmax(output, dim=1)
+    def predict_step(self, batch, batch_idx: int, dataloader_idx: int = 0):
+        x, _ = batch  # We don't use targets during prediction
+        outputs = self(x)
+        return torch.softmax(outputs, dim=1)
 
     def encode_targets(self, targets):
         """
@@ -101,7 +103,9 @@ class LowLevelModel(pl.LightningModule):
             if targets.dim() == 2:
                 pass  # already correct shape
             else:
-                raise ValueError(f"Expected targets of shape (B, T), got shape {targets.shape}")
+                raise ValueError(
+                    f"Expected targets of shape (B, T), got shape {targets.shape}"
+                )
         # If input is a list or tuple of Tensors, stack along the last dim
         elif isinstance(targets, (list, tuple)):
             targets = torch.stack(targets, dim=1)
@@ -111,7 +115,6 @@ class LowLevelModel(pl.LightningModule):
         targets = targets.to(self.multipliers.device)
         target = (targets * self.multipliers).sum(dim=1).long()
         return target
-
 
     def decode_targets(self, joint_class):
         """

@@ -48,9 +48,9 @@
         "classes": ["White", "Black", "Asian", "Indian", "Others"]
       }
     ],
-    "lowLevelModelSource": "./models/utkfaces-low-level-model-ckpt",
-    "lowLevelCalibSource": "./models/utkfaces-low-level-calibration.json",
-    "highLevelModelSource": "./models/utkfaces-high-level-model-ckpt",
-    "highLevelCalibSource": "./models/utkfaces-high-level-calibration.json"
+    "lowLevelModelSource": "./models/utkface-low-level-model-ckpt",
+    "lowLevelCalibSource": "./models/utkface-low-level-calibration.json",
+    "highLevelModelSource": "./models/utkface-high-level-model-ckpt",
+    "highLevelCalibSource": "./models/utkface-high-level-calibration.json"
   }
 }

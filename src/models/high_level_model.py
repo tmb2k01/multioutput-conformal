@@ -44,6 +44,7 @@ class HighLevelModel(pl.LightningModule):
                 [
                     nn.Sequential(
                         nn.Linear(in_features, 512),
+                        nn.BatchNorm1d(512),
                         nn.ReLU(),
                         nn.Dropout(0.5),
                         nn.Linear(512, num_classes),
@@ -80,8 +81,9 @@ class HighLevelModel(pl.LightningModule):
         outputs = [classifier(features) for classifier in self.classifiers]
         return outputs
 
-    def predict_step(self, input):
-        outputs = self(input)
+    def predict_step(self, batch, batch_idx: int, dataloader_idx: int = 0):
+        x, _ = batch
+        outputs = self(x)
         return [torch.softmax(out, dim=1) for out in outputs]
 
     def shared_step(self, batch, stage, accuracy=False):

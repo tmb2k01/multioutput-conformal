@@ -1,10 +1,12 @@
 import os
 import shutil
+
 from sklearn.model_selection import train_test_split
 
-data_dir = "data/UTKFaces"
+data_dir = "data/UTKFace"
 part_dirs = [os.path.join(data_dir, part) for part in ["part1", "part2", "part3"]]
 dataset_dir = os.path.join(data_dir, "merged")
+
 
 def merge_parts():
     for part_dir in part_dirs:
@@ -41,9 +43,15 @@ def prepare_dataset():
         filename = os.path.basename(path)
         try:
             parts = filename.split("_")
-            sex = parts[1]
+            if len(parts) < 4:
+                print(f"Skipping invalid filename: {filename}")
+                continue
+            if not parts[0].isdigit() or not parts[1].isdigit():
+                print(f"Skipping invalid filename: {filename}")
+                continue
+            gender = parts[1]
             race = parts[2]
-            sex_labels.append(sex)
+            sex_labels.append(gender)
             race_labels.append(race)
             filtered_files.append(path)
         except IndexError:
@@ -70,7 +78,7 @@ def prepare_dataset():
     save_split_data(X_val, y_val, "valid")
     save_split_data(X_test, y_test, "test")
     save_split_data(X_calib, y_calib, "calib")
-    
+
     shutil.rmtree(dataset_dir)
 
 
