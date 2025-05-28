@@ -10,7 +10,10 @@ docker-pycreds==0.4.0
 filelock==3.18.0
 frozenlist==1.5.0
 fsspec==2025.3.2
+gdown==5.2.0
 gitdb==4.0.12
+gradio==5.31.0
+gradio_client==1.10.1
 GitPython==3.1.44
 idna==3.10
 Jinja2==3.1.6

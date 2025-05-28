@@ -5,7 +5,7 @@ import torch
 import torchvision.transforms.functional as TF
 from PIL import Image
 from torch.utils.data import DataLoader, Dataset
-from torchvision.transforms import Compose, RandomVerticalFlip
+from torchvision.transforms import Compose, RandomVerticalFlip, Resize
 
 
 def list_image_paths(root_dir):
@@ -121,19 +121,24 @@ class MultiOutputDataModule(pl.LightningDataModule):
         self.train_dataset = MultiOutputDataset(
             root_dir=os.path.join(self.root_dir, "train"),
             task_num_classes=self.task_num_classes,
-            transform=Compose([RandomVerticalFlip()]),  # Simple data augmentation
+            transform=Compose(
+                [RandomVerticalFlip(), Resize((256, 256))]
+            ),  # Simple data augmentation
         )
         self.val_dataset = MultiOutputDataset(
             root_dir=os.path.join(self.root_dir, "valid"),
             task_num_classes=self.task_num_classes,
+            transform=Resize((256, 256)),
         )
         self.test_dataset = MultiOutputDataset(
             root_dir=os.path.join(self.root_dir, "test"),
             task_num_classes=self.task_num_classes,
+            transform=Resize((256, 256)),
         )
         self.calib_dataset = MultiOutputDataset(
             root_dir=os.path.join(self.root_dir, "calib"),
             task_num_classes=self.task_num_classes,
+            transform=Resize((256, 256)),
         )
 
         self.datasets = {

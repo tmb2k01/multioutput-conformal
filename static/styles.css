@@ -1,0 +1,46 @@
+h1 {
+    text-align: center !important;
+}
+
+.no-select {
+    /* Keep scrolling active */
+    overflow: auto;
+}
+
+.no-select * {
+    user-select: none !important;
+}
+
+/* Only disable pointer-events for table cells (not the scroll container) */
+.no-select table th,
+.no-select table td {
+    pointer-events: none !important;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.no-select table {
+    table-layout: fixed !important;
+    width: 100% !important;
+}
+
+.no-select table th:nth-child(1),
+.no-select table td:nth-child(1) {
+    width: 25% !important;
+}
+
+.no-select table th:nth-child(2),
+.no-select table td:nth-child(2) {
+    width: 35% !important;
+}
+
+.no-select table th:nth-child(3),
+.no-select table td:nth-child(3) {
+    width: 20% !important;
+}
+
+.no-select table th:nth-child(4),
+.no-select table td:nth-child(4) {
+    width: 20% !important;
+}

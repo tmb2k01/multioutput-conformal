@@ -1,0 +1,64 @@
+{
+  "SGVehicle": {
+    "tasks": [
+      {
+        "name": "Color",
+        "classes": [
+          "Yellow",
+          "Orange",
+          "Green",
+          "Gray",
+          "Red",
+          "Blue",
+          "White",
+          "Golden",
+          "Brown",
+          "Black",
+          "Purple",
+          "Pink"
+        ]
+      },
+      {
+        "name": "Type",
+        "classes": [
+          "Sedan",
+          "SUV",
+          "Van",
+          "Hatchback",
+          "MPV",
+          "Pickup",
+          "Bus",
+          "Truck",
+          "Estate",
+          "Sportscar",
+          "RV"
+        ]
+      }
+    ],
+    "weights": {
+      "low": "./models/sgvehicle-low-level-model.ckpt",
+      "high": "./models/sgvehicle-high-level-model.ckpt"
+    },
+    "thresholds": {
+      "low": "./models/sgvehicle-low-level-calibration.json",
+      "high": "./models/sgvehicle-high-level-calibration.json"
+    }
+  },
+  "UTKFace": {
+    "tasks": [
+      { "name": "Gender", "classes": ["Male", "Female"] },
+      {
+        "name": "Race",
+        "classes": ["White", "Black", "Asian", "Indian", "Others"]
+      }
+    ],
+    "weights": {
+      "low": "./models/utkface-low-level-model.ckpt",
+      "high": "./models/utkface-high-level-model.ckpt"
+    },
+    "thresholds": {
+      "low": "./models/utkface-low-level-calibration.json",
+      "high": "./models/utkface-high-level-calibration.json"
+    }
+  }
+}
