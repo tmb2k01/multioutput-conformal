@@ -76,7 +76,7 @@ def calibrate_model(
         n_clusters=n_clusters,
     )
 
-    with open(f"./models/{filename}-{level}-level-calibration.json", "w") as f:
+    with open(f"./models/{filename}-calibration.json", "w") as f:
         json.dump(convert_numpy_to_native(q_hats), f, indent=2)
 
 

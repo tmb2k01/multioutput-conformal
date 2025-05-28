@@ -28,6 +28,14 @@ HIGH_CP_TYPES = [
     "Clustered CP - Taskwise Clusters",
 ]
 
+CP_TYPE_MAPPING = {
+    "Standard CP - Global Threshold": "scp_global",
+    "Standard CP - Taskwise Threshold": "scp_task",
+    "Classwise CP": "ccp_class",
+    "Clustered CP - Global Clusters": "ccp_global_cluster",
+    "Clustered CP - Taskwise Clusters": "ccp_task_cluster",
+}
+
 model_cache = {}
 
 
@@ -50,35 +58,107 @@ def load_model(level: str, model_type: str):
     return model
 
 
+# ---- New helper functions to clean up generate_table_data ----
+
+
+def load_thresholds(model_type: str, level: str, score_type: str):
+    threshold_path = CONFIG[model_type]["thresholds"][level.lower()]
+    with open(threshold_path, "r") as f:
+        all_thresholds = json.load(f)
+    return all_thresholds.get(score_type, {})
+
+
+def get_threshold_for_high_level(
+    cp_type: str, thresholds_data: dict, task_idx: int, class_idx: int, idx: int
+) -> str:
+    if cp_type == "scp_global":
+        return f"{thresholds_data['scp_global_threshold']:.5f}"
+    if cp_type == "scp_task":
+        return f"{thresholds_data['scp_task_thresholds'][task_idx]:.5f}"
+    if cp_type == "ccp_class":
+        # Use class_idx here instead of idx
+        return f"{thresholds_data['ccp_class_thresholds'][task_idx][class_idx]:.5f}"
+    if cp_type == "ccp_task_cluster":
+        cluster_id = thresholds_data["ccp_task_cluster_thresholds"][f"task-{task_idx}"][
+            "mapping"
+        ][class_idx]
+        qhat = thresholds_data["ccp_task_cluster_thresholds"][f"task-{task_idx}"][
+            "qhats"
+        ][cluster_id]
+        return f"{qhat:.5f}"
+    if cp_type == "ccp_global_cluster":
+        cluster_id = thresholds_data["ccp_global_cluster_thresholds"][
+            "class_to_cluster_mapping"
+        ][f"task-{task_idx}"][class_idx]
+        qhat = thresholds_data["ccp_global_cluster_thresholds"]["cluster_qhats"][
+            cluster_id
+        ]
+        return f"{qhat:.5f}"
+    return "-"
+
+
+def get_threshold_for_low_level(cp_type: str, thresholds_data: dict, idx: int) -> str:
+    if cp_type == "scp_global":
+        return f"{thresholds_data['scp_global_threshold']:.5f}"
+    if cp_type == "ccp_class":
+        return f"{thresholds_data['ccp_class_thresholds'][idx]:.5f}"
+    if cp_type == "ccp_global_cluster":
+        cluster_id = thresholds_data["ccp_global_clusters"]["class_to_cluster_mapping"][
+            idx
+        ]
+        qhat = thresholds_data["ccp_global_clusters"]["cluster_qhats"][cluster_id]
+        return f"{qhat:.5f}"
+    return "-"
+
+
+def score_passed(score: str, threshold: str) -> bool:
+    if score == "-" or threshold == "-":
+        return False
+    return float(score) <= float(threshold)
+
+
 def generate_table_data(
-    model_type: str, level: str = "HIGH", scores=None
+    model_type: str,
+    level: str = "HIGH",
+    scores=None,
+    cp_type: str = "scp_global",
+    score_type: str = "hinge",
 ) -> list[list[str]]:
-    """Generate prediction table rows with optional score values."""
+    """Generate prediction table rows with optional score and threshold values."""
     if model_type not in CONFIG:
         return []
 
-    rows = []
+    thresholds_data = load_thresholds(model_type, level, score_type)
     tasks = CONFIG[model_type]["tasks"]
+
+    rows = []
 
     if level == "HIGH":
         idx = 0
-        for task in tasks:
+        for task_idx, task in enumerate(tasks):
             rows.append([f"🔷 {task['name']}", "", "", ""])
-            for cls in task["classes"]:
-                score = f"{scores[idx]:.3f}" if scores else "-"
-                rows.append(["", cls, score, "-"])
+            for class_idx, cls in enumerate(task["classes"]):
+                score = f"{scores[idx]:.5f}" if scores is not None else "-"
+                threshold = get_threshold_for_high_level(
+                    cp_type, thresholds_data, task_idx, class_idx, idx
+                )
+                mark = "🟢" if score_passed(score, threshold) else ""
+                rows.append(["", f"{mark}{cls}", score, threshold])
                 idx += 1
-    else:
+
+    else:  # LOW level
         combined_classes = list(product(*[t["classes"] for t in tasks]))
         for i, combo in enumerate(combined_classes):
             label = " | ".join(combo)
-            score = f"{scores[i]:.3f}" if scores else "-"
-            rows.append([label, score, "-"])
+            score = f"{scores[i]:.5f}" if scores is not None else "-"
+            threshold = get_threshold_for_low_level(cp_type, thresholds_data, i)
+            mark = "🟢" if score_passed(score, threshold) else ""
+            rows.append([f"{mark}{label}", score, threshold])
 
     return rows
 
 
-def predict(image, level, model_type, nonconformity_type):
+def predict(image, level, model_type, nonconformity_type, cp_type):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model = load_model(level, model_type).to(device)
 
@@ -101,7 +181,15 @@ def predict(image, level, model_type, nonconformity_type):
     else:
         scores = scores.flatten()
 
-    table = generate_table_data(model_type, level, scores=scores.tolist())
+    internal_cp_type = CP_TYPE_MAPPING.get(cp_type, "scp_global")
+    score_type = nonconformity_type.lower()
+    table = generate_table_data(
+        model_type,
+        level,
+        scores=scores.tolist(),
+        cp_type=internal_cp_type,
+        score_type=score_type,
+    )
     return table
 
 
@@ -147,28 +235,34 @@ def launch():
             elem_classes="no-select",
         )
 
-        # --- Logic ---
-        model_level.change(
-            lambda lvl: gr.update(
-                choices=LOW_CP_TYPES if lvl == "LOW" else HIGH_CP_TYPES,
-                value=(LOW_CP_TYPES if lvl == "LOW" else HIGH_CP_TYPES)[0],
-            ),
-            inputs=model_level,
-            outputs=cp_type,
-        )
+        def update_cp_choices(lvl):
+            choices = LOW_CP_TYPES if lvl == "LOW" else HIGH_CP_TYPES
+            return gr.update(choices=choices, value=choices[0])
 
-        def update_table(level, model_type):
+        model_level.change(update_cp_choices, model_level, cp_type)
+
+        def update_table(level, model_type, cp_type, nonconformity):
+            internal_cp_type = CP_TYPE_MAPPING.get(cp_type, "scp_global")
+            score_type = nonconformity.lower()
             new_headers = (
                 ["Class", "Score", "Threshold"] if level == "LOW" else column_names
             )
-            new_rows = generate_table_data(model_type, level)
+            new_rows = generate_table_data(
+                model_type, level, cp_type=internal_cp_type, score_type=score_type
+            )
             return gr.update(headers=new_headers, value=new_rows)
 
-        model_level.change(update_table, [model_level, model_type], table_output)
-        model_type.change(update_table, [model_level, model_type], table_output)
+        for widget in [model_level, model_type, cp_type, nonconformity]:
+            widget.change(
+                update_table,
+                [model_level, model_type, cp_type, nonconformity],
+                table_output,
+            )
 
         submit_btn.click(
-            predict, [image_input, model_level, model_type, nonconformity], table_output
+            predict,
+            [image_input, model_level, model_type, nonconformity, cp_type],
+            table_output,
         )
 
         image_input.change(
