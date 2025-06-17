@@ -44,7 +44,6 @@ class HighLevelModel(pl.LightningModule):
                 [
                     nn.Sequential(
                         nn.Linear(in_features, 512),
-                        nn.BatchNorm1d(512),
                         nn.ReLU(),
                         nn.Dropout(0.5),
                         nn.Linear(512, num_classes),
