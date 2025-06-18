@@ -162,6 +162,7 @@ def predict(image, level, model_type, nonconformity_type, cp_type):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model = load_model(level, model_type).to(device)
 
+    nonconformity_type = nonconformity_type.lower()
     transform = T.Compose([T.ToTensor()])
     image_tensor = transform(image).unsqueeze(0).to(device)
 
@@ -182,13 +183,12 @@ def predict(image, level, model_type, nonconformity_type, cp_type):
         scores = scores.flatten()
 
     internal_cp_type = CP_TYPE_MAPPING.get(cp_type, "scp_global")
-    score_type = nonconformity_type.lower()
     table = generate_table_data(
         model_type,
         level,
         scores=scores.tolist(),
         cp_type=internal_cp_type,
-        score_type=score_type,
+        score_type=nonconformity_type,
     )
     return table
 

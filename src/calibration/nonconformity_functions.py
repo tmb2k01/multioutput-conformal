@@ -59,6 +59,8 @@ def _margin_score(
     if isinstance(softmax, list):
         return [compute_margin(s) for s in softmax]
     else:
+        if softmax.ndim == 1:
+            softmax = softmax[np.newaxis, :]
         return compute_margin(softmax)
 
 
@@ -98,12 +100,14 @@ def _pip_score(
     if isinstance(softmax, list):
         return [compute_pip(s) for s in softmax]
     else:
+        if softmax.ndim == 1:
+            softmax = softmax[np.newaxis, :]
         return compute_pip(softmax)
 
 
 # Dictionary mapping names to nonconformity functions
 NONCONFORMITY_FN_DIC: Dict[str, Callable[..., np.ndarray]] = {
-    "Hinge": _hinge_loss,
-    "Margin": _margin_score,
-    "PiP": _pip_score,
+    "hinge": _hinge_loss,
+    "margin": _margin_score,
+    "pip": _pip_score,
 }

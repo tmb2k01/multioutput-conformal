@@ -2,10 +2,15 @@ import os
 
 from src.train import train
 from src.web_service import launch
+import argparse
 
 
 def main():
-    if os.getenv("TRAINING_MODE", "OFF") == "ON":
+    parser = argparse.ArgumentParser(description="Run training or launch web service.")
+    parser.add_argument("--train", action="store_true", help="Run in training mode")
+    args = parser.parse_args()
+
+    if args.train:
         print("Training the model...")
         train()
     else:

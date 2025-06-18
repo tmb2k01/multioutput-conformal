@@ -45,7 +45,6 @@ def calibrate_model(
     n_clusters=3,
 ):
     high_level = isinstance(model, HighLevelModel)
-    level = "high" if high_level else "low"
 
     model.eval()
     trainer = pl.Trainer(accelerator="gpu")

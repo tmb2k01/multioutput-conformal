@@ -139,6 +139,7 @@ class HighLevelModel(pl.LightningModule):
             Tuple[List[np.ndarray], List[np.ndarray]]: True and predicted labels for each task.
         """
         x, targets = batch
+        targets = targets.T  # shape [T, B]
         y_pred = self(x)
 
         true_labels = [target.cpu().numpy() for target in targets]

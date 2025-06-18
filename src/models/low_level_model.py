@@ -171,6 +171,7 @@ class LowLevelModel(pl.LightningModule):
         Stores true and predicted labels for evaluation after test epoch.
         """
         x, targets = batch
+        targets = targets.T  # shape [T, B]
         y_pred = self(x)
 
         true_labels = [target.cpu().numpy() for target in targets]
