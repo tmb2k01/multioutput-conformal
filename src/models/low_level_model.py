@@ -55,7 +55,6 @@ class LowLevelModel(pl.LightningModule):
         else:
             self.classifier = nn.Sequential(
                 nn.Linear(in_features, 512),
-                nn.BatchNorm1d(512),
                 nn.ReLU(),
                 nn.Dropout(0.5),
                 nn.Linear(512, num_classes),
@@ -172,6 +171,7 @@ class LowLevelModel(pl.LightningModule):
         Stores true and predicted labels for evaluation after test epoch.
         """
         x, targets = batch
+        targets = targets.T  # shape [T, B]
         y_pred = self(x)
 
         true_labels = [target.cpu().numpy() for target in targets]
