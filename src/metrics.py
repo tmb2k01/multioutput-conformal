@@ -142,3 +142,54 @@ def compute_class_based_weights(task_num_classes: List[int]) -> np.ndarray:
     """
     weights = np.array(task_num_classes)
     return weights / np.sum(weights)
+
+
+def compute_classwise_coverage(predictions: List[np.ndarray], labels: np.ndarray, num_classes: int) -> np.ndarray:
+    """
+    Computes empirical class-conditional coverage for a single task.
+
+    Args:
+        predictions (List[np.ndarray]): Prediction sets for each sample.
+        labels (np.ndarray): True labels for each sample.
+        num_classes (int): Number of classes in the task.
+
+    Returns:
+        np.ndarray: Classwise coverage rates (ĉ_y for each class y).
+    """
+    coverages = []
+    for y in range(num_classes):
+        idxs = np.where(labels == y)[0]
+        if len(idxs) == 0:
+            continue  # skip classes not present in the validation set
+        cov_y = np.mean([labels[i] in predictions[i] for i in idxs])
+        coverages.append(cov_y)
+    return np.array(coverages)
+
+
+def compute_overall_covgap(predictions: List[List[np.ndarray]], labels: List[np.ndarray], task_num_classes: List[int], alpha: float) -> float:
+    """
+    Computes average class coverage gap (CovGap) across tasks.
+
+    Args:
+        predictions (List[List[np.ndarray]]): List of tasks, each containing prediction sets per sample.
+        labels (List[np.ndarray]): List of true label arrays for each task.
+        task_num_classes (List[int]): Number of classes for each task.
+        alpha (float): Significance level.
+
+    Returns:
+        float: CovGap value.
+    """
+    all_coverages = []
+    for preds, lbls, C in zip(predictions, labels, task_num_classes):
+        class_cov = compute_classwise_coverage(preds, lbls, C)
+        all_coverages.extend(class_cov)
+    
+    all_coverages = np.array(all_coverages)
+    return 100 * np.mean(np.abs(all_coverages - (1 - alpha)))
+
+def compute_covgap(predictions, labels, num_classes, alpha):
+    """
+    Compute average class coverage gap (CovGap) for a single task.
+    """
+    class_cov = compute_classwise_coverage(predictions, labels, num_classes)
+    return 100 * np.mean(np.abs(class_cov - (1 - alpha)))
