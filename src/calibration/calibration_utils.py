@@ -1,10 +1,18 @@
-from typing import Callable, Dict, List, Tuple, Union
+from typing import Callable, Counter, Dict, List, Tuple, Union
 
 import numpy as np
 from sklearn.cluster import AgglomerativeClustering, KMeans
 
-from src.calibration.clustering_utils import embed_all_classes, embed_all_tasks
+from src.calibration.clustering_utils import embed_all_classes, embed_all_tasks, get_clustering_parameters
 
+def get_quantile_threshold(alpha):
+    '''
+    Compute smallest n such that ceil((n+1)*(1-alpha)/n) <= 1
+    '''
+    n = 1
+    while np.ceil((n+1)*(1-alpha)/n) > 1:
+        n += 1
+    return n
 
 def get_conformal_quantile(scores: np.ndarray, alpha: float) -> float:
     """
@@ -161,7 +169,7 @@ def compute_qhat_ccp_task_cluster(
     nonconformity_scores: np.ndarray,
     true_labels: np.ndarray,
     alpha: float,
-    n_clusters: int = 3,
+    n_clusters: Union[int, str] = "auto",
     cluster_method: str = "kmeans",
     q: Tuple[float, ...] = (0.5, 0.6, 0.7, 0.8, 0.9),
 ) -> dict:
@@ -194,11 +202,37 @@ def compute_qhat_ccp_task_cluster(
     # 1 - Embed each class per task
     task_class_embeddings = embed_all_tasks(nonconformity_scores, true_labels, q=q)
 
+    # 1.5 - Auto-select number of clusters if needed
+    if n_clusters == "auto":
+        num_clusters_per_task = []
+
+        for task_id, row in enumerate(true_labels):
+
+            # Count frequencies for this task only
+            cts_dict = Counter(row)
+
+            # Ensure all classes up to max(row) are included
+            n_classes = np.max(row) + 1
+            cts = [cts_dict.get(k, 0) for k in range(n_classes)]
+
+            n_min = min(cts)
+            n_thresh = get_quantile_threshold(alpha)
+            n_min = max(n_min, n_thresh)  # exclude classes with too few examples
+            num_remaining_classes = np.sum(np.array(cts) >= n_min)
+
+            # Compute clustering params *per task*
+            n_clustering, num_clusters = get_clustering_parameters(num_remaining_classes, n_min)
+
+            print(f"[Task {task_id}] n_clustering={n_clustering}, "
+                f"num_clusters={num_clusters}")
+
+            num_clusters_per_task.append(num_clusters)
+
     # 2 - For each task, perform clustering and compute q-hats
     for t in range(T):
         class_embeds = task_class_embeddings[t]  # (C_t, D)
         n_classes = class_embeds.shape[0]
-        n_task_clusters = min(n_clusters, n_classes)
+        n_task_clusters = min(num_clusters_per_task[t], n_classes)
 
         # Choose clustering method
         if cluster_method == "kmeans":
@@ -233,7 +267,7 @@ def compute_qhat_ccp_global_cluster(
     nonconformity_scores: np.ndarray,
     true_labels: np.ndarray,
     alpha: float,
-    n_clusters: int = 3,
+    n_clusters: Union[int, str] = "auto",
     cluster_method: str = "kmeans",
     q: Tuple[float, ...] = (0.5, 0.6, 0.7, 0.8, 0.9),
 ) -> dict:
@@ -274,6 +308,33 @@ def compute_qhat_ccp_global_cluster(
             nonconformity_scores, true_labels, q=q
         )  # (C, D)
         num_classes_per_task = [flat_embeddings.shape[0]]
+
+
+    # 1.5 - Auto-select number of clusters if needed
+    if n_clusters == "auto":
+        true_labels_cluster = true_labels
+        if true_labels.ndim == 1:
+            true_labels_cluster = true_labels_cluster[np.newaxis, :]  # shape (1, N)
+        
+        # Flatten to tuples (row_id, label)
+        task_label_pairs = [(i, lbl) for i, row in enumerate(true_labels_cluster) for lbl in row]
+        cts_dict = Counter(task_label_pairs)
+
+        # Suppose num_classes_per_task = [max label count for each row]
+        num_classes_per_task = [np.max(row) + 1 for row in true_labels_cluster]
+
+        cts = []
+        for i, n_classes in enumerate(num_classes_per_task):
+            for k in range(n_classes):
+                cts.append(cts_dict.get((i, k), 0))
+
+        n_min = min(cts)
+        n_thresh = get_quantile_threshold(alpha) 
+        n_min = max(n_min, n_thresh)  # Classes with fewer than n_thresh examples will be excluded
+        num_remaining_classes = np.sum(np.array(cts) >= n_min)
+
+        n_clustering, n_clusters = get_clustering_parameters(num_remaining_classes, n_min)
+        print(f'n_clustering={n_clustering}, num_clusters={n_clusters}')
 
     # Step 2: Choose and apply clustering method
     n_classes = flat_embeddings.shape[0]

@@ -42,7 +42,7 @@ def calibrate_model(
     datamodule: MultiOutputDataModule,
     filename: str,
     alpha: float = 0.05,
-    n_clusters=3,
+    n_clusters: Union[str, int] = "auto",
 ):
     high_level = isinstance(model, HighLevelModel)
 
@@ -85,7 +85,7 @@ def train_model(
     task_num_classes,
     model: Union[HighLevelModel, LowLevelModel],
     alpha: float = 0.05,
-    calibration_clusters: Union[None, int] = 3,
+    calibration_clusters: Union[str, int] = "auto",
 ):
     datamodule = MultiOutputDataModule(
         root_dir=root_dir,
@@ -119,11 +119,13 @@ def train_model(
         logger=wandb_logger,
     )
     trainer.fit(model, datamodule)
+    wandb.finish()
 
     # Calibration logic goes here
-    model.eval()
-    trainer = pl.Trainer(accelerator="gpu")
-
+    model_path = checkpoint.best_model_path
+    model = model.__class__.load_from_checkpoint(
+        model_path, task_num_classes=task_num_classes
+    )
     calibrate_model(
         model,
         datamodule,
@@ -131,7 +133,6 @@ def train_model(
         alpha=alpha,
         n_clusters=calibration_clusters,
     )
-    wandb.finish()
 
 
 def train():
