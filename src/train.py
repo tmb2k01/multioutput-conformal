@@ -42,7 +42,7 @@ def calibrate_model(
     datamodule: MultiOutputDataModule,
     filename: str,
     alpha: float = 0.05,
-    n_clusters=3,
+    n_clusters: Union[str, int] = "auto",
 ):
     high_level = isinstance(model, HighLevelModel)
 
@@ -85,7 +85,7 @@ def train_model(
     task_num_classes,
     model: Union[HighLevelModel, LowLevelModel],
     alpha: float = 0.05,
-    calibration_clusters: Union[None, int] = 3,
+    calibration_clusters: Union[str, int] = "auto",
 ):
     datamodule = MultiOutputDataModule(
         root_dir=root_dir,
