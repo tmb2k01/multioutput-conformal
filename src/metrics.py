@@ -82,9 +82,9 @@ def compute_overall_efficiency(predictions: List[List[np.ndarray]]) -> float:
 
 
 def compute_weighted_efficiency(
-    predictions: List[List[np.ndarray]], 
+    predictions: List[List[np.ndarray]],
     task_weights: np.ndarray,
-    normalize_weights: bool = True
+    normalize_weights: bool = True,
 ) -> float:
     """
     Computes weighted efficiency across tasks based on provided weights.
@@ -98,17 +98,17 @@ def compute_weighted_efficiency(
         float: Weighted average efficiency across tasks.
     """
     taskwise_eff = compute_taskwise_efficiency(predictions)
-    
+
     if normalize_weights:
         task_weights = task_weights / np.sum(task_weights)
-    
+
     return np.sum(taskwise_eff * task_weights)
 
 
 def compute_weighted_informativeness(
-    predictions: List[List[np.ndarray]], 
+    predictions: List[List[np.ndarray]],
     task_weights: np.ndarray,
-    normalize_weights: bool = True
+    normalize_weights: bool = True,
 ) -> float:
     """
     Computes weighted informativeness across tasks based on provided weights.
@@ -122,10 +122,10 @@ def compute_weighted_informativeness(
         float: Weighted average informativeness across tasks.
     """
     taskwise_info = compute_taskwise_informativeness(predictions)
-    
+
     if normalize_weights:
         task_weights = task_weights / np.sum(task_weights)
-    
+
     return np.sum(taskwise_info * task_weights)
 
 
@@ -144,7 +144,9 @@ def compute_class_based_weights(task_num_classes: List[int]) -> np.ndarray:
     return weights / np.sum(weights)
 
 
-def compute_classwise_coverage(predictions: List[np.ndarray], labels: np.ndarray, num_classes: int) -> np.ndarray:
+def compute_classwise_coverage(
+    predictions: List[np.ndarray], labels: np.ndarray, num_classes: int
+) -> np.ndarray:
     """
     Computes empirical class-conditional coverage for a single task.
 
@@ -166,7 +168,12 @@ def compute_classwise_coverage(predictions: List[np.ndarray], labels: np.ndarray
     return np.array(coverages)
 
 
-def compute_overall_covgap(predictions: List[List[np.ndarray]], labels: List[np.ndarray], task_num_classes: List[int], alpha: float) -> float:
+def compute_overall_covgap(
+    predictions: List[List[np.ndarray]],
+    labels: List[np.ndarray],
+    task_num_classes: List[int],
+    alpha: float,
+) -> float:
     """
     Computes average class coverage gap (CovGap) across tasks.
 
@@ -183,9 +190,10 @@ def compute_overall_covgap(predictions: List[List[np.ndarray]], labels: List[np.
     for preds, lbls, C in zip(predictions, labels, task_num_classes):
         class_cov = compute_classwise_coverage(preds, lbls, C)
         all_coverages.extend(class_cov)
-    
+
     all_coverages = np.array(all_coverages)
     return 100 * np.mean(np.abs(all_coverages - (1 - alpha)))
+
 
 def compute_covgap(predictions, labels, num_classes, alpha):
     """
