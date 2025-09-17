@@ -90,25 +90,29 @@ def embed_all_tasks(
 
     return (embeddings, cts) if return_cts else embeddings
 
+
 def get_clustering_parameters(num_classes, n_totalcal):
-    '''
-    Returns a guess of good values for num_clusters and n_clustering based solely 
-    on the number of classes and the number of examples per class. 
-    
-    This relies on two heuristics:
-    1) We want at least 150 points per cluster on average
-    2) We need more samples as we try to distinguish between more distributions. 
-    To distinguish between 2 distribution, want at least 4 samples per class. 
-    To distinguish between 5 distributions, want at least 10 samples per class. 
-    
-    Output: n_clustering, num_clusters    
-    '''
-    
+    """
+    Estimate suitable values for the number of clustering points and clusters
+    for clustered conformal prediction based on calibration set size and
+    number of classes.
+
+    Args:
+        num_classes (int): Number of output classes (K).
+        n_totalcal (int): Total number of calibration examples (N).
+
+    Returns:
+        Tuple[int, int]:
+            - n_clustering (int): Estimated number of clustering points to use.
+            - num_clusters (int): Estimated number of clusters, ensuring at least
+              150 points per cluster on average and scaling with the number of classes.
+    """
+
     # Alias for convenience
     K = num_classes
     N = n_totalcal
-    
-    n_clustering = int(N*K/(75+K))
+
+    n_clustering = int(N * K / (75 + K))
     num_clusters = int(np.floor(n_clustering / 2))
-    
+
     return n_clustering, num_clusters

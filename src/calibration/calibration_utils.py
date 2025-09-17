@@ -3,16 +3,22 @@ from typing import Callable, Counter, Dict, List, Tuple, Union
 import numpy as np
 from sklearn.cluster import AgglomerativeClustering, KMeans
 
-from src.calibration.clustering_utils import embed_all_classes, embed_all_tasks, get_clustering_parameters
+from src.calibration.clustering_utils import (
+    embed_all_classes,
+    embed_all_tasks,
+    get_clustering_parameters,
+)
+
 
 def get_quantile_threshold(alpha):
-    '''
+    """
     Compute smallest n such that ceil((n+1)*(1-alpha)/n) <= 1
-    '''
+    """
     n = 1
-    while np.ceil((n+1)*(1-alpha)/n) > 1:
+    while np.ceil((n + 1) * (1 - alpha) / n) > 1:
         n += 1
     return n
+
 
 def get_conformal_quantile(scores: np.ndarray, alpha: float) -> float:
     """
@@ -221,10 +227,14 @@ def compute_qhat_ccp_task_cluster(
             num_remaining_classes = np.sum(np.array(cts) >= n_min)
 
             # Compute clustering params *per task*
-            n_clustering, num_clusters = get_clustering_parameters(num_remaining_classes, n_min)
+            n_clustering, num_clusters = get_clustering_parameters(
+                num_remaining_classes, n_min
+            )
 
-            print(f"[Task {task_id}] n_clustering={n_clustering}, "
-                f"num_clusters={num_clusters}")
+            print(
+                f"[Task {task_id}] n_clustering={n_clustering}, "
+                f"num_clusters={num_clusters}"
+            )
 
             num_clusters_per_task.append(num_clusters)
 
@@ -309,15 +319,16 @@ def compute_qhat_ccp_global_cluster(
         )  # (C, D)
         num_classes_per_task = [flat_embeddings.shape[0]]
 
-
     # 1.5 - Auto-select number of clusters if needed
     if n_clusters == "auto":
         true_labels_cluster = true_labels
         if true_labels.ndim == 1:
             true_labels_cluster = true_labels_cluster[np.newaxis, :]  # shape (1, N)
-        
+
         # Flatten to tuples (row_id, label)
-        task_label_pairs = [(i, lbl) for i, row in enumerate(true_labels_cluster) for lbl in row]
+        task_label_pairs = [
+            (i, lbl) for i, row in enumerate(true_labels_cluster) for lbl in row
+        ]
         cts_dict = Counter(task_label_pairs)
 
         # Suppose num_classes_per_task = [max label count for each row]
@@ -329,12 +340,16 @@ def compute_qhat_ccp_global_cluster(
                 cts.append(cts_dict.get((i, k), 0))
 
         n_min = min(cts)
-        n_thresh = get_quantile_threshold(alpha) 
-        n_min = max(n_min, n_thresh)  # Classes with fewer than n_thresh examples will be excluded
+        n_thresh = get_quantile_threshold(alpha)
+        n_min = max(
+            n_min, n_thresh
+        )  # Classes with fewer than n_thresh examples will be excluded
         num_remaining_classes = np.sum(np.array(cts) >= n_min)
 
-        n_clustering, n_clusters = get_clustering_parameters(num_remaining_classes, n_min)
-        print(f'n_clustering={n_clustering}, num_clusters={n_clusters}')
+        n_clustering, n_clusters = get_clustering_parameters(
+            num_remaining_classes, n_min
+        )
+        print(f"n_clustering={n_clustering}, num_clusters={n_clusters}")
 
     # Step 2: Choose and apply clustering method
     n_classes = flat_embeddings.shape[0]
