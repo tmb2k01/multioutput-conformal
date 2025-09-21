@@ -89,30 +89,3 @@ def embed_all_tasks(
         embeddings.append(task_embeddings)
 
     return (embeddings, cts) if return_cts else embeddings
-
-
-def get_clustering_parameters(num_classes, n_totalcal):
-    """
-    Estimate suitable values for the number of clustering points and clusters
-    for clustered conformal prediction based on calibration set size and
-    number of classes.
-
-    Args:
-        num_classes (int): Number of output classes (K).
-        n_totalcal (int): Total number of calibration examples (N).
-
-    Returns:
-        Tuple[int, int]:
-            - n_clustering (int): Estimated number of clustering points to use.
-            - num_clusters (int): Estimated number of clusters, ensuring at least
-              150 points per cluster on average and scaling with the number of classes.
-    """
-
-    # Alias for convenience
-    K = num_classes
-    N = n_totalcal
-
-    n_clustering = int(N * K / (75 + K))
-    num_clusters = int(np.floor(n_clustering / 2))
-
-    return n_clustering, num_clusters
