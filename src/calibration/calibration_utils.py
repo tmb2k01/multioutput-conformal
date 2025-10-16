@@ -242,21 +242,49 @@ def compute_qhat_ccp_task_cluster(
     for t in range(T):
         class_embeds = task_class_embeddings[t]  # (C_t, D)
         n_classes = class_embeds.shape[0]
-        n_task_clusters = min(num_clusters_per_task[t], n_classes)
+        labels = true_labels[t]
 
-        # Choose clustering method
-        if cluster_method == "kmeans":
-            clusterer = KMeans(n_clusters=n_task_clusters, random_state=0)
-        elif cluster_method == "hierarchical":
-            clusterer = AgglomerativeClustering(
-                n_clusters=n_task_clusters, linkage="ward"
-            )
+        # Count samples per class
+        cts_dict = Counter(labels)
+        cts = [cts_dict.get(k, 0) for k in range(n_classes)]
+        n_thresh = get_quantile_threshold(alpha)
+
+        # Split into "valid" and "null" classes
+        null_classes = [i for i, c in enumerate(cts) if c < n_thresh]
+        keep_classes = [i for i in range(n_classes) if i not in null_classes]
+
+        if len(keep_classes) == 0:
+            cluster_labels = np.array([0] * n_classes)
         else:
-            raise ValueError(f"Unsupported clustering method: {cluster_method}")
+            n_task_clusters = min(num_clusters_per_task[t], len(keep_classes))
+
+            if cluster_method == "kmeans":
+                clusterer = KMeans(n_clusters=n_task_clusters, random_state=0)
+            elif cluster_method == "hierarchical":
+                clusterer = AgglomerativeClustering(
+                    n_clusters=n_task_clusters, linkage="ward"
+                )
+            else:
+                raise ValueError(f"Unsupported clustering method: {cluster_method}")
+
+            # Cluster only valid classes
+            keep_embeds = class_embeds[keep_classes]
+            keep_cluster_labels = clusterer.fit_predict(keep_embeds)
+
+            # Initialize mapping with -1
+            cluster_labels = np.full(n_classes, -1, dtype=int)
+            for i, c in enumerate(keep_classes):
+                cluster_labels[c] = keep_cluster_labels[i]
+
+            # Assign null cluster ID as "last cluster"
+            null_cluster_id = (
+                keep_cluster_labels.max() + 1 if len(keep_classes) > 0 else 0
+            )
+            for c in null_classes:
+                cluster_labels[c] = null_cluster_id
 
         # Cluster class embeddings
-        cluster_labels = clusterer.fit_predict(class_embeds)  # (C_t,)
-        relabeled = cluster_labels[true_labels[t]]  # Map B labels to cluster indices
+        relabeled = cluster_labels[labels]
 
         # Compute q-hats for this task
         task_qhats = compute_qhat_ccp_class(
@@ -319,68 +347,66 @@ def compute_qhat_ccp_global_cluster(
         )  # (C, D)
         num_classes_per_task = [flat_embeddings.shape[0]]
 
-    # 1.5 - Auto-select number of clusters if needed
-    if n_clusters == "auto":
-        true_labels_cluster = true_labels
-        if true_labels.ndim == 1:
-            true_labels_cluster = true_labels_cluster[np.newaxis, :]  # shape (1, N)
-
-        # Flatten to tuples (row_id, label)
-        task_label_pairs = [
-            (i, lbl) for i, row in enumerate(true_labels_cluster) for lbl in row
+    # Count per-class frequencies
+    if is_multitask:
+        cts_dict = Counter((i, lbl) for i, row in enumerate(true_labels) for lbl in row)
+        cts = [
+            cts_dict.get((i, k), 0)
+            for i, n_classes in enumerate(num_classes_per_task)
+            for k in range(n_classes)
         ]
-        cts_dict = Counter(task_label_pairs)
+    else:
+        cts_dict = Counter(true_labels)
+        cts = [cts_dict.get(k, 0) for k in range(num_classes_per_task[0])]
 
-        # Suppose num_classes_per_task = [max label count for each row]
-        num_classes_per_task = [np.max(row) + 1 for row in true_labels_cluster]
-
-        cts = []
-        for i, n_classes in enumerate(num_classes_per_task):
-            for k in range(n_classes):
-                cts.append(cts_dict.get((i, k), 0))
-
-        n_min = min(cts)
-        n_thresh = get_quantile_threshold(alpha)
-        n_min = max(
-            n_min, n_thresh
-        )  # Classes with fewer than n_thresh examples will be excluded
-        num_remaining_classes = np.sum(np.array(cts) >= n_min)
-
-        n_clustering, n_clusters = get_clustering_parameters(
-            num_remaining_classes, n_min
-        )
-        print(f"n_clustering={n_clustering}, num_clusters={n_clusters}")
+    n_thresh = get_quantile_threshold(alpha)
+    null_classes = [i for i, c in enumerate(cts) if c < n_thresh]
+    keep_classes = [i for i in range(len(cts)) if i not in null_classes]
 
     # Step 2: Choose and apply clustering method
-    n_classes = flat_embeddings.shape[0]
-    n_task_clusters = min(n_clusters, n_classes)
+    if len(keep_classes) > 0:
+        n_task_clusters = min(
+            n_clusters if n_clusters != "auto" else len(keep_classes), len(keep_classes)
+        )
+        clusterer = {
+            "kmeans": KMeans(n_clusters=n_task_clusters, random_state=0),
+            "hierarchical": AgglomerativeClustering(
+                n_clusters=n_task_clusters, linkage="ward"
+            ),
+        }[cluster_method]
 
-    clusterer = {
-        "kmeans": KMeans(n_clusters=n_task_clusters, random_state=0),
-        "hierarchical": AgglomerativeClustering(
-            n_clusters=n_task_clusters, linkage="ward"
-        ),
-    }[cluster_method]
+        keep_embeds = flat_embeddings[keep_classes]
+        keep_cluster_labels = clusterer.fit_predict(keep_embeds)
 
-    flat_cluster_labels = clusterer.fit_predict(flat_embeddings)
+        # Assign cluster labels to all classes
+        cluster_labels = np.full(len(cts), -1, dtype=int)
+        for i, c in enumerate(keep_classes):
+            cluster_labels[c] = keep_cluster_labels[i]
+
+        # Null cluster ID
+        null_cluster_id = keep_cluster_labels.max() + 1
+        for c in null_classes:
+            cluster_labels[c] = null_cluster_id
+    else:
+        # All classes go to null cluster
+        cluster_labels = np.zeros(len(cts), dtype=int)
 
     # Step 3: Map cluster labels back to tasks/classes
     if is_multitask:
         split_indices = np.cumsum(num_classes_per_task)[:-1]
-        per_task_labels = np.split(flat_cluster_labels, split_indices)
+        per_task_labels = np.split(cluster_labels, split_indices)
 
         for t, labels in enumerate(per_task_labels):
             result["class_to_cluster_mapping"][f"task-{t}"] = labels
 
-        # Build relabeled flat cluster assignments
         relabeled_clusters = np.stack(
             [per_task_labels[t][true_labels[t]] for t in range(len(per_task_labels))]
         )
         flat_labels = relabeled_clusters.reshape(-1)
         all_scores = nonconformity_scores.reshape(-1)
     else:
-        result["class_to_cluster_mapping"] = flat_cluster_labels
-        flat_labels = flat_cluster_labels[true_labels]
+        result["class_to_cluster_mapping"] = cluster_labels
+        flat_labels = cluster_labels[true_labels]
         all_scores = nonconformity_scores
 
     # Step 4: Compute q-hats by cluster
