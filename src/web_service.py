@@ -12,7 +12,7 @@ from src.models.high_level_model import HighLevelModel
 from src.models.low_level_model import LowLevelModel
 
 # Constants & Config
-CONFIG_PATH = Path("./static/config.json")
+CONFIG_PATH = Path("./static/ws-config.json")
 CONFIG = json.loads(CONFIG_PATH.read_text(encoding="utf-8"))
 
 LOW_CP_TYPES = [

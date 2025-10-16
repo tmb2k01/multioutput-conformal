@@ -81,6 +81,17 @@ class HighLevelModel(pl.LightningModule):
         return outputs
 
     def predict_step(self, batch, batch_idx: int, dataloader_idx: int = 0):
+        """
+        Performs a prediction step during model evaluation or inference.
+
+        Args:
+            batch (Tuple[torch.Tensor, Any]): A batch of input data and corresponding labels or targets.
+            batch_idx (int): Index of the current batch.
+            dataloader_idx (int, optional): Index of the dataloader (for multiple dataloaders). Defaults to 0.
+
+        Returns:
+            List[torch.Tensor]: A list of tensors containing the softmax probabilities for each output in the batch.
+        """
         x, _ = batch
         outputs = self(x)
         return [torch.softmax(out, dim=1) for out in outputs]
