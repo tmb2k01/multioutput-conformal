@@ -277,9 +277,7 @@ def compute_qhat_ccp_task_cluster(
                 cluster_labels[c] = keep_cluster_labels[i]
 
             # Assign null cluster ID as "last cluster"
-            null_cluster_id = (
-                keep_cluster_labels.max() + 1 if len(keep_classes) > 0 else 0
-            )
+            null_cluster_id = keep_cluster_labels.max() + 1
             for c in null_classes:
                 cluster_labels[c] = null_cluster_id
 
