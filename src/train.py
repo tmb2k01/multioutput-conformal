@@ -1,6 +1,7 @@
 import json
 import math
 import os
+from pathlib import Path
 from typing import Union
 
 import numpy as np
@@ -13,15 +14,6 @@ from src.data.multi_output_dataset import MultiOutputDataModule
 from src.models.high_level_model import HighLevelModel
 from src.models.low_level_model import LowLevelModel
 from src.models.model_utils import convert_multitask_preds
-
-# SGVehicle Dataset properties
-SGVEHICLE_COLOR = 12
-SGVEHICLE_TYPE = 11
-SGVEHICLE_TASK_NUM_CLASSES = [SGVEHICLE_COLOR, SGVEHICLE_TYPE]
-
-UTKFACE_GENDER = 2
-UTKFACE_RACE = 5
-UTKFACE_TASK_NUM_CLASSES = [UTKFACE_GENDER, UTKFACE_RACE]
 
 
 def convert_numpy_to_native(obj):
@@ -135,28 +127,34 @@ def train_model(
     )
 
 
+CONFIG_PATH = Path("./static/train-config.json")
+
+
 def train():
     print(f"Is CUDA available: {torch.cuda.is_available()}")
     wandb.login()
     os.makedirs("models", exist_ok=True)
-    train_model(
-        "data/SGVehicle",
-        "sgvehicle-high-level",
-        SGVEHICLE_TASK_NUM_CLASSES,
-        HighLevelModel,
-    )
-    train_model(
-        "data/SGVehicle",
-        "sgvehicle-low-level",
-        SGVEHICLE_TASK_NUM_CLASSES,
-        LowLevelModel,
-    )
-    train_model(
-        "data/UTKFace",
-        "utkface-high-level",
-        UTKFACE_TASK_NUM_CLASSES,
-        HighLevelModel,
-    )
-    train_model(
-        "data/UTKFace", "utkface-low-level", UTKFACE_TASK_NUM_CLASSES, LowLevelModel
-    )
+
+    cfg = json.loads(CONFIG_PATH.read_text(encoding="utf-8"))
+    alpha = cfg.get("alpha", 0.05)
+    calibration_clusters = cfg.get("calibration_clusters", "auto")
+
+    for ds in cfg.get("datasets", []):
+        name = ds["name"]
+        root_dir = ds["root_dir"]
+        task_num_classes = ds["task_num_classes"]
+        levels = ds.get("levels", ["HIGH", "LOW"])
+
+        for level in levels:
+            is_high = level.upper() == "HIGH"
+            model_cls = HighLevelModel if is_high else LowLevelModel
+            filename = f"{name.lower()}-{'high' if is_high else 'low'}-level"
+
+            train_model(
+                root_dir=root_dir,
+                filename=filename,
+                task_num_classes=task_num_classes,
+                model=model_cls,
+                alpha=alpha,
+                calibration_clusters=calibration_clusters,
+            )

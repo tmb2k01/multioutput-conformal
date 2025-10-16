@@ -112,8 +112,8 @@ class LowLevelModel(pl.LightningModule):
             raise TypeError(f"Unsupported target type: {type(targets)}")
 
         targets = targets.to(self.multipliers.device)
-        target = (targets * self.multipliers).sum(dim=1).long()
-        return target
+        targets = (targets * self.multipliers).sum(dim=1).long()
+        return targets
 
     def decode_targets(self, joint_class):
         """

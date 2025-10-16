@@ -1,0 +1,30 @@
+{
+    "alpha": 0.05,
+    "calibration_clusters": "auto",
+    "datasets": [
+        {
+            "name": "SGVehicle",
+            "root_dir": "data/SGVehicle",
+            "task_num_classes": [
+                12,
+                11
+            ],
+            "levels": [
+                "HIGH",
+                "LOW"
+            ]
+        },
+        {
+            "name": "UTKFace",
+            "root_dir": "data/UTKFace",
+            "task_num_classes": [
+                2,
+                5
+            ],
+            "levels": [
+                "HIGH",
+                "LOW"
+            ]
+        }
+    ]
+}
