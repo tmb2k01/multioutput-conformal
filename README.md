@@ -91,7 +91,7 @@ python3 -m src.main --train
 
 This will start the training process.
 
-> **Weights & Biases logging:** place your API key in `.wandb_api_key` (or set `WANDB_API_KEY_FILE`/`WANDB_KEY_FILE` to another path) to enable W&B tracking. If the file is missing, empty, or the key is invalid, training automatically falls back to the default Lightning logger.
+> **Weights & Biases logging:** place your API key in `.wandb_api_key` (or set `WANDB_API_KEY_FILE` to another path) to enable W&B tracking. If the file is missing, empty, or the key is invalid, training automatically falls back to the default Lightning logger.
 
 #### Starting the Web Service
 

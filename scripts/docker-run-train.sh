@@ -20,6 +20,11 @@ mkdir -p \
   "${PROJECT_ROOT}/wandb"
 
 echo "Running training from image '${IMAGE_TAG}' (container: ${CONTAINER_NAME})"
+WANDB_ARGS=()
+if (( ${#WANDB_MOUNT[@]} )); then
+  WANDB_ARGS=("${WANDB_MOUNT[@]}")
+fi
+
 docker run --rm \
   --name "${CONTAINER_NAME}" \
   -v "${PROJECT_ROOT}/data:/app/data" \
@@ -27,7 +32,7 @@ docker run --rm \
   -v "${PROJECT_ROOT}/static:/app/static:ro" \
   -v "${PROJECT_ROOT}/lightning_logs:/app/lightning_logs" \
   -v "${PROJECT_ROOT}/wandb:/app/wandb" \
-  "${WANDB_MOUNT[@]}" \
+  "${WANDB_ARGS[@]}" \
   ${DOCKER_RUN_ARGS:-} \
   "${IMAGE_TAG}" \
   --train
