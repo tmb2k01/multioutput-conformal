@@ -71,6 +71,40 @@ def calibrate_model(
         json.dump(convert_numpy_to_native(q_hats), f, indent=2)
 
 
+def init_wandb_logger(project_name: str):
+    key_file = os.environ.get("WANDB_API_KEY_FILE", "./.wandb_api_key")
+    key_path = Path(key_file)
+
+    if not key_path.is_file():
+        print(
+            f"W&B key file '{key_path}' not found. Continuing without Weights & Biases logging."
+        )
+        return None
+
+    key = key_path.read_text(encoding="utf-8").strip()
+    if not key:
+        print(
+            f"W&B key file '{key_path}' is empty. Continuing without Weights & Biases logging."
+        )
+        return None
+
+    os.environ.setdefault("WANDB_API_KEY", key)
+
+    try:
+        wandb.login(key=key, relogin=True)
+    except Exception as exc:  # pragma: no cover - defensive
+        print(f"Failed to authenticate with Weights & Biases: {exc}")
+        print("Continuing without W&B logging.")
+        return None
+
+    try:
+        return pl.loggers.WandbLogger(project=project_name)
+    except Exception as exc:  # pragma: no cover - defensive
+        print(f"Failed to initialise W&B logger: {exc}")
+        print("Continuing without W&B logging.")
+        return None
+
+
 def train_model(
     root_dir,
     filename,
@@ -87,9 +121,7 @@ def train_model(
     )
     datamodule.setup()
     model = model(task_num_classes=task_num_classes)
-    wandb_logger = pl.loggers.WandbLogger(
-        project=f"{filename}-model",
-    )
+    wandb_logger = init_wandb_logger(project_name=f"{filename}-model")
     early_stopping = pl.callbacks.EarlyStopping(
         monitor="val_loss",
         patience=5,
@@ -108,10 +140,11 @@ def train_model(
         accelerator="gpu",
         max_epochs=30,
         callbacks=[early_stopping, checkpoint],
-        logger=wandb_logger,
+        logger=wandb_logger if wandb_logger is not None else True,
     )
     trainer.fit(model, datamodule)
-    wandb.finish()
+    if wandb_logger is not None:
+        wandb.finish()
 
     # Calibration logic goes here
     model_path = checkpoint.best_model_path
@@ -132,7 +165,6 @@ CONFIG_PATH = Path("./static/train-config.json")
 
 def train():
     print(f"Is CUDA available: {torch.cuda.is_available()}")
-    wandb.login()
     os.makedirs("models", exist_ok=True)
 
     cfg = json.loads(CONFIG_PATH.read_text(encoding="utf-8"))
