@@ -1,6 +1,7 @@
 {
     "alpha": 0.05,
     "calibration_clusters": "auto",
+    "models_dir": "models/",
     "datasets": [
         {
             "name": "SGVehicle",
