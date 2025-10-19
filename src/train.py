@@ -39,7 +39,7 @@ def calibrate_model(
     high_level = isinstance(model, HighLevelModel)
 
     model.eval()
-    trainer = pl.Trainer(accelerator="gpu")
+    trainer = pl.Trainer()
     preds = trainer.predict(model, dataloaders=datamodule.calib_dataloader())
 
     if high_level:
@@ -110,6 +110,7 @@ def train_model(
     filename,
     task_num_classes,
     model: Union[HighLevelModel, LowLevelModel],
+    model_dir: str = "models/",
     alpha: float = 0.05,
     calibration_clusters: Union[str, int] = "auto",
 ):
@@ -137,7 +138,6 @@ def train_model(
         mode="min",
     )
     trainer = pl.Trainer(
-        accelerator="gpu",
         max_epochs=30,
         callbacks=[early_stopping, checkpoint],
         logger=wandb_logger if wandb_logger is not None else True,
@@ -170,6 +170,7 @@ def train():
     cfg = json.loads(CONFIG_PATH.read_text(encoding="utf-8"))
     alpha = cfg.get("alpha", 0.05)
     calibration_clusters = cfg.get("calibration_clusters", "auto")
+    model_dir = cfg.get("models_dir", "models/")
 
     for ds in cfg.get("datasets", []):
         name = ds["name"]
@@ -187,6 +188,7 @@ def train():
                 filename=filename,
                 task_num_classes=task_num_classes,
                 model=model_cls,
+                model_dir=model_dir,
                 alpha=alpha,
                 calibration_clusters=calibration_clusters,
             )
