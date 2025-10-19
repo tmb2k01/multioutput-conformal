@@ -131,7 +131,7 @@ def train_model(
     )
     checkpoint = pl.callbacks.ModelCheckpoint(
         monitor="val_loss",
-        dirpath="models/",
+        dirpath=model_dir,
         filename=f"{filename}-model",
         save_top_k=1,
         save_weights_only=False,
