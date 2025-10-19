@@ -1,4 +1,4 @@
-FROM nvidia/cuda:12.4.1-cudnn9-runtime-ubuntu22.04
+FROM nvidia/cuda:12.4.1-cudnn-runtime-ubuntu22.04
 
 ARG NB_USER=app
 ARG NB_UID=1000
@@ -10,22 +10,26 @@ ENV PYTHONUNBUFFERED=1 \
     TZ=UTC \
     GRADIO_SERVER_NAME=0.0.0.0 \
     GRADIO_SERVER_PORT=7860 \
-    WANDB_DIR=/app/wandb \
+    WANDB_DIR=/app/wandb WANDB_CACHE_DIR=/app/wandb/cache WANDB_CONFIG_DIR=/app/wandb/config \
     WANDB_API_KEY_FILE=/app/.wandb_api_key \
-    PATH="/home/${NB_USER}/.local/bin:${PATH}"
+    PATH="/home/${NB_USER}/.local/bin:${PATH}" \
+    NVIDIA_VISIBLE_DEVICES=all \
+    NVIDIA_DRIVER_CAPABILITIES=compute,utility
+
+RUN mkdir -p /app/wandb && chown -R ${NB_UID}:${NB_UID} /app
 
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
-        python3.10 \
-        python3-pip \
-        python3.10-venv \
-        git \
-        curl \
-        ca-certificates \
-        libglib2.0-0 \
-        libsm6 \
-        libxext6 \
-        libxrender1 && \
+    python3.10 \
+    python3-pip \
+    python3.10-venv \
+    git \
+    curl \
+    ca-certificates \
+    libglib2.0-0 \
+    libsm6 \
+    libxext6 \
+    libxrender1 && \
     ln -sf /usr/bin/python3.10 /usr/bin/python && \
     ln -sf /usr/bin/python3.10 /usr/bin/python3 && \
     python -m pip install --upgrade pip setuptools wheel && \
@@ -38,9 +42,9 @@ WORKDIR /app
 COPY requirements.txt .
 
 RUN if [ -n "${TORCH_EXTRA_INDEX_URL}" ]; then \
-        python -m pip install --no-cache-dir --extra-index-url ${TORCH_EXTRA_INDEX_URL} -r requirements.txt; \
+    python -m pip install --no-cache-dir --extra-index-url ${TORCH_EXTRA_INDEX_URL} -r requirements.txt; \
     else \
-        python -m pip install --no-cache-dir -r requirements.txt; \
+    python -m pip install --no-cache-dir -r requirements.txt; \
     fi
 
 COPY src ./src

@@ -15,6 +15,7 @@ mkdir -p \
 echo "Starting web service from image '${IMAGE_TAG}' (container: ${CONTAINER_NAME})"
 docker run --rm \
   --name "${CONTAINER_NAME}" \
+  --gpus all \
   -p "${PORT}:7860" \
   -v "${PROJECT_ROOT}/data:/app/data" \
   -v "${PROJECT_ROOT}/models:/app/models" \
