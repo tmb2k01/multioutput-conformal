@@ -1,4 +1,5 @@
 import json
+import os
 from itertools import product
 from pathlib import Path
 
@@ -11,7 +12,14 @@ from src.calibration.nonconformity_functions import NONCONFORMITY_FN_DIC
 from src.models.high_level_model import HighLevelModel
 from src.models.low_level_model import LowLevelModel
 
-# Constants & Config
+
+# ---------- helpers ----------
+def _expand_path(p: str) -> str:
+    """Expand ${VARS} and ~ in paths."""
+    return os.path.expanduser(os.path.expandvars(p))
+
+
+# ---------- config ----------
 CONFIG_PATH = Path("./static/ws-config.json")
 CONFIG = json.loads(CONFIG_PATH.read_text(encoding="utf-8"))
 
@@ -49,20 +57,20 @@ def load_model(level: str, model_type: str):
         return model_cache[key]
 
     num_classes = get_task_num_classes(model_type)
-    ckpt = CONFIG[model_type]["weights"][level.lower()]
-    model_cls = HighLevelModel if level == "HIGH" else LowLevelModel
 
+    ckpt_raw = CONFIG[model_type]["weights"][level.lower()]
+    ckpt = _expand_path(ckpt_raw)
+
+    model_cls = HighLevelModel if level == "HIGH" else LowLevelModel
     model = model_cls.load_from_checkpoint(ckpt, task_num_classes=num_classes)
     model.eval()
     model_cache[key] = model
     return model
 
 
-# ---- New helper functions to clean up generate_table_data ----
-
-
 def load_thresholds(model_type: str, level: str, score_type: str):
-    threshold_path = CONFIG[model_type]["thresholds"][level.lower()]
+    t_raw = CONFIG[model_type]["thresholds"][level.lower()]
+    threshold_path = _expand_path(t_raw)
     with open(threshold_path, "r") as f:
         all_thresholds = json.load(f)
     return all_thresholds.get(score_type, {})
@@ -76,7 +84,6 @@ def get_threshold_for_high_level(
     if cp_type == "scp_task":
         return f"{thresholds_data['scp_task_thresholds'][task_idx]:.5f}"
     if cp_type == "ccp_class":
-        # Use class_idx here instead of idx
         return f"{thresholds_data['ccp_class_thresholds'][task_idx][class_idx]:.5f}"
     if cp_type == "ccp_task_cluster":
         cluster_id = thresholds_data["ccp_task_cluster_thresholds"][f"task-{task_idx}"][
@@ -124,7 +131,6 @@ def generate_table_data(
     cp_type: str = "scp_global",
     score_type: str = "hinge",
 ) -> list[list[str]]:
-    """Generate prediction table rows with optional score and threshold values."""
     if model_type not in CONFIG:
         return []
 
@@ -132,7 +138,6 @@ def generate_table_data(
     tasks = CONFIG[model_type]["tasks"]
 
     rows = []
-
     if level == "HIGH":
         idx = 0
         for task_idx, task in enumerate(tasks):
@@ -176,11 +181,11 @@ def predict(image, level, model_type, nonconformity_type, cp_type):
 
     nonconformity_fn = NONCONFORMITY_FN_DIC[nonconformity_type]
     scores = nonconformity_fn(softmax_outputs)
-
-    if isinstance(scores, list):
-        scores = np.concatenate(scores, axis=1).flatten()
-    else:
-        scores = scores.flatten()
+    scores = (
+        np.concatenate(scores, axis=1).flatten()
+        if isinstance(scores, list)
+        else scores.flatten()
+    )
 
     internal_cp_type = CP_TYPE_MAPPING.get(cp_type, "scp_global")
     table = generate_table_data(

@@ -5,29 +5,22 @@ PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 IMAGE_TAG="${IMAGE_TAG:-masters-thesis:latest}"
 CONTAINER_NAME="${CONTAINER_NAME:-masters-thesis-train}"
 WANDB_KEY_FILE="${WANDB_KEY_FILE:-${PROJECT_ROOT}/.wandb_api_key}"
-DOCKER_RUN_ARGS="--shm-size=8g --ipc=host"
+DOCKER_RUN_ARGS="${DOCKER_RUN_ARGS:---shm-size=8g --ipc=host}"
 
-# Ensure host paths exist
-mkdir -p \
-  "${PROJECT_ROOT}/data" \
-  "${PROJECT_ROOT}/models" \
-  "${PROJECT_ROOT}/lightning_logs" \
-  "${PROJECT_ROOT}/wandb"
+HOST_DATA_DIR="${1:-${PROJECT_ROOT}/data}"
+HOST_MODELS_DIR="${2:-${PROJECT_ROOT}/models}"
+HOST_LOGS_DIR="${PROJECT_ROOT}/lightning_logs"
+HOST_WANDB_DIR="${PROJECT_ROOT}/wandb"
 
-# Make host dirs writable by current user
-chown -R "$(id -u)":"$(id -g)" \
-  "${PROJECT_ROOT}/models" \
-  "${PROJECT_ROOT}/lightning_logs" \
-  "${PROJECT_ROOT}/wandb" 2>/dev/null || true
-chmod -R u+rwX "${PROJECT_ROOT}/models" "${PROJECT_ROOT}/lightning_logs" "${PROJECT_ROOT}/wandb" || true
+mkdir -p "${HOST_DATA_DIR}" "${HOST_MODELS_DIR}" "${HOST_LOGS_DIR}" "${HOST_WANDB_DIR}"
+chown -R "$(id -u)":"$(id -g)" "${HOST_MODELS_DIR}" "${HOST_LOGS_DIR}" "${HOST_WANDB_DIR}" 2>/dev/null || true
+chmod -R u+rwX "${HOST_MODELS_DIR}" "${HOST_LOGS_DIR}" "${HOST_WANDB_DIR}" || true
 
-# Optional: run container with host UID/GID to avoid permission issues on mounted dirs
 USER_FLAGS=()
 if [[ "${RUN_AS_HOST_UID:-1}" != "0" ]]; then
   USER_FLAGS=(--user "$(id -u)":"$(id -g)")
 fi
 
-# W&B configuration
 WANDB_ARGS=(
   -e WANDB_MODE=online
   -e WANDB_DIR=/app/wandb
@@ -35,24 +28,32 @@ WANDB_ARGS=(
   -e WANDB_CONFIG_DIR=/app/wandb/config
 )
 if [[ -f "${WANDB_KEY_FILE}" ]]; then
-  # Provide key via env and also mount the file read-only (optional)
   WANDB_ARGS+=(-e "WANDB_API_KEY=$(<"${WANDB_KEY_FILE}")")
   WANDB_ARGS+=(-v "${WANDB_KEY_FILE}:/app/.wandb_api_key:ro")
 else
-  echo "No W&B API key found at ${WANDB_KEY_FILE}; W&B will prompt or fail to authenticate."
+  echo "No W&B API key at ${WANDB_KEY_FILE}; W&B may prompt or fail."
 fi
 
+APP_ENVS=(
+  -e DATA_DIR=/app/data
+  -e MODELS_DIR=/app/models
+)
+
 echo "Running training from image '${IMAGE_TAG}' (container: ${CONTAINER_NAME})"
+echo "Host data dir  : ${HOST_DATA_DIR}"
+echo "Host models dir: ${HOST_MODELS_DIR}"
+
 docker run --rm \
   --name "${CONTAINER_NAME}" \
   --gpus all \
+  ${DOCKER_RUN_ARGS} \
   "${USER_FLAGS[@]}" \
   "${WANDB_ARGS[@]}" \
-  -v "${PROJECT_ROOT}/data:/app/data:ro" \
-  -v "${PROJECT_ROOT}/models:/app/models:rw" \
+  "${APP_ENVS[@]}" \
+  -v "${HOST_DATA_DIR}:/app/data:ro" \
+  -v "${HOST_MODELS_DIR}:/app/models:rw" \
   -v "${PROJECT_ROOT}/static:/app/static:ro" \
-  -v "${PROJECT_ROOT}/lightning_logs:/app/lightning_logs:rw" \
-  -v "${PROJECT_ROOT}/wandb:/app/wandb:rw" \
-  ${DOCKER_RUN_ARGS} \
+  -v "${HOST_LOGS_DIR}:/app/lightning_logs:rw" \
+  -v "${HOST_WANDB_DIR}:/app/wandb:rw" \
   "${IMAGE_TAG}" \
   --train
