@@ -47,6 +47,16 @@ RUN if [ -n "${TORCH_EXTRA_INDEX_URL}" ]; then \
     python -m pip install --no-cache-dir -r requirements.txt; \
     fi
 
+
+# Pre-download ResNet50 weights
+RUN apt-get update && apt-get install -y --no-install-recommends wget ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+ENV TORCH_HOME=/home/app/.cache/torch
+RUN mkdir -p ${TORCH_HOME}/hub/checkpoints \
+    && wget -q https://download.pytorch.org/models/resnet50-11ad3fa6.pth \
+    -O ${TORCH_HOME}/hub/checkpoints/resnet50-11ad3fa6.pth \
+    && chown -R app:app /home/app/.cache
+
 COPY src ./src
 COPY static ./static
 COPY scripts ./scripts
