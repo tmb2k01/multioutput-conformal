@@ -4,7 +4,7 @@ set -euo pipefail
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 IMAGE_TAG="${IMAGE_TAG:-masters-thesis:latest}"
 CONTAINER_NAME="${CONTAINER_NAME:-masters-thesis-web}"
-PORT="${PORT:-7860}"
+PORT="${PORT:-8080}"
 
 mkdir -p \
   "${PROJECT_ROOT}/data" \
@@ -16,7 +16,7 @@ echo "Starting web service from image '${IMAGE_TAG}' (container: ${CONTAINER_NAM
 docker run --rm \
   --name "${CONTAINER_NAME}" \
   --gpus all \
-  -p "${PORT}:7860" \
+  -p "${PORT}:8080" \
   -v "${PROJECT_ROOT}/data:/app/data" \
   -v "${PROJECT_ROOT}/models:/app/models" \
   -v "${PROJECT_ROOT}/static:/app/static:ro" \
