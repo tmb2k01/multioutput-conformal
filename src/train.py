@@ -7,8 +7,8 @@ from typing import Union
 import numpy as np
 import pytorch_lightning as pl
 import torch
-
 import wandb
+
 from src.calibration.calibration import calibration
 from src.data.multi_output_dataset import MultiOutputDataModule
 from src.models.high_level_model import HighLevelModel
@@ -16,25 +16,36 @@ from src.models.low_level_model import LowLevelModel
 from src.models.model_utils import convert_multitask_preds
 
 
+# ---------- path helpers ----------
+def _expand_path(p: str) -> Path:
+    return Path(os.path.expanduser(os.path.expandvars(p)))
+
+
+DATA_DIR_DEFAULT = os.getenv("DATA_DIR", "data")
+MODELS_DIR_DEFAULT = os.getenv("MODELS_DIR", "models")
+
+
+# ---------- json utils ----------
 def convert_numpy_to_native(obj):
     if isinstance(obj, np.ndarray):
         return obj.tolist()
-    elif isinstance(obj, (np.integer, np.floating)):
+    if isinstance(obj, (np.integer, np.floating)):
         return obj.item()
-    elif isinstance(obj, dict):
+    if isinstance(obj, dict):
         return {k: convert_numpy_to_native(v) for k, v in obj.items()}
-    elif isinstance(obj, list):
+    if isinstance(obj, list):
         return [convert_numpy_to_native(x) for x in obj]
-    else:
-        return obj
+    return obj
 
 
+# ---------- core ----------
 def calibrate_model(
     model: Union[HighLevelModel, LowLevelModel],
     datamodule: MultiOutputDataModule,
     filename: str,
     alpha: float = 0.05,
     n_clusters: Union[str, int] = "auto",
+    model_dir: str = MODELS_DIR_DEFAULT,
 ):
     high_level = isinstance(model, HighLevelModel)
 
@@ -67,13 +78,15 @@ def calibrate_model(
         n_clusters=n_clusters,
     )
 
-    with open(f"./models/{filename}-calibration.json", "w") as f:
+    out_dir = _expand_path(model_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    with (out_dir / f"{filename}-calibration.json").open("w") as f:
         json.dump(convert_numpy_to_native(q_hats), f, indent=2)
 
 
 def init_wandb_logger(project_name: str):
     key_file = os.environ.get("WANDB_API_KEY_FILE", "./.wandb_api_key")
-    key_path = Path(key_file)
+    key_path = _expand_path(key_file)
 
     if not key_path.is_file():
         print(
@@ -83,37 +96,38 @@ def init_wandb_logger(project_name: str):
 
     key = key_path.read_text(encoding="utf-8").strip()
     if not key:
-        print(
-            f"W&B key file '{key_path}' is empty. Continuing without Weights & Biases logging."
-        )
+        print(f"W&B key file '{key_path}' is empty. Continuing without W&B logging.")
         return None
 
     os.environ.setdefault("WANDB_API_KEY", key)
 
     try:
         wandb.login(key=key, relogin=True)
-    except Exception as exc:  # pragma: no cover - defensive
+    except Exception as exc:  # defensive
         print(f"Failed to authenticate with Weights & Biases: {exc}")
         print("Continuing without W&B logging.")
         return None
 
     try:
         return pl.loggers.WandbLogger(project=project_name)
-    except Exception as exc:  # pragma: no cover - defensive
+    except Exception as exc:  # defensive
         print(f"Failed to initialise W&B logger: {exc}")
         print("Continuing without W&B logging.")
         return None
 
 
 def train_model(
-    root_dir,
-    filename,
+    root_dir: str,
+    filename: str,
     task_num_classes,
     model: Union[HighLevelModel, LowLevelModel],
-    model_dir: str = "models/",
+    model_dir: str = MODELS_DIR_DEFAULT,
     alpha: float = 0.05,
     calibration_clusters: Union[str, int] = "auto",
 ):
+    root_dir = str(_expand_path(root_dir))
+    model_dir = str(_expand_path(os.path.expandvars(os.path.expanduser(model_dir))))
+
     datamodule = MultiOutputDataModule(
         root_dir=root_dir,
         task_num_classes=task_num_classes,
@@ -122,12 +136,11 @@ def train_model(
     )
     datamodule.setup()
     model = model(task_num_classes=task_num_classes)
+
     wandb_logger = init_wandb_logger(project_name=f"{filename}-model")
+
     early_stopping = pl.callbacks.EarlyStopping(
-        monitor="val_loss",
-        patience=5,
-        verbose=True,
-        mode="min",
+        monitor="val_loss", patience=5, verbose=True, mode="min"
     )
     checkpoint = pl.callbacks.ModelCheckpoint(
         monitor="val_loss",
@@ -137,6 +150,7 @@ def train_model(
         save_weights_only=False,
         mode="min",
     )
+
     trainer = pl.Trainer(
         max_epochs=30,
         callbacks=[early_stopping, checkpoint],
@@ -146,7 +160,7 @@ def train_model(
     if wandb_logger is not None:
         wandb.finish()
 
-    # Calibration logic goes here
+    # Calibration
     model_path = checkpoint.best_model_path
     model = model.__class__.load_from_checkpoint(
         model_path, task_num_classes=task_num_classes
@@ -157,24 +171,37 @@ def train_model(
         filename=filename,
         alpha=alpha,
         n_clusters=calibration_clusters,
+        model_dir=model_dir,
     )
 
 
-CONFIG_PATH = Path("./static/train-config.json")
+CONFIG_PATH = _expand_path("./static/train-config.json")
 
 
 def train():
     print(f"Is CUDA available: {torch.cuda.is_available()}")
-    os.makedirs("models", exist_ok=True)
+
+    # ensure models dir exists
+    _expand_path(MODELS_DIR_DEFAULT).mkdir(parents=True, exist_ok=True)
 
     cfg = json.loads(CONFIG_PATH.read_text(encoding="utf-8"))
     alpha = cfg.get("alpha", 0.05)
     calibration_clusters = cfg.get("calibration_clusters", "auto")
-    model_dir = cfg.get("models_dir", "models/")
+
+    # model_dir may contain ${MODELS_DIR}; expand and fallback
+    model_dir_raw = cfg.get("models_dir", MODELS_DIR_DEFAULT)
+    model_dir = (
+        os.path.expanduser(os.path.expandvars(model_dir_raw)) or MODELS_DIR_DEFAULT
+    )
 
     for ds in cfg.get("datasets", []):
+        # root_dir may contain ${DATA_DIR}; expand and fallback
+        root_raw = ds["root_dir"]
+        root_dir = os.path.expanduser(os.path.expandvars(root_raw))
+        if not root_dir:
+            root_dir = str(_expand_path(f"{DATA_DIR_DEFAULT}/{ds['name']}"))
+
         name = ds["name"]
-        root_dir = ds["root_dir"]
         task_num_classes = ds["task_num_classes"]
         levels = ds.get("levels", ["HIGH", "LOW"])
 

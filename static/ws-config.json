@@ -36,29 +36,41 @@
       }
     ],
     "weights": {
-      "low": "./models/sgvehicle-low-level-model.ckpt",
-      "high": "./models/sgvehicle-high-level-model.ckpt"
+      "low": "${MODELS_DIR}/sgvehicle-low-level-model.ckpt",
+      "high": "${MODELS_DIR}/sgvehicle-high-level-model.ckpt"
     },
     "thresholds": {
-      "low": "./models/sgvehicle-low-level-calibration.json",
-      "high": "./models/sgvehicle-high-level-calibration.json"
+      "low": "${MODELS_DIR}/sgvehicle-low-level-calibration.json",
+      "high": "${MODELS_DIR}/sgvehicle-high-level-calibration.json"
     }
   },
   "UTKFace": {
     "tasks": [
-      { "name": "Gender", "classes": ["Male", "Female"] },
+      {
+        "name": "Gender",
+        "classes": [
+          "Male",
+          "Female"
+        ]
+      },
       {
         "name": "Race",
-        "classes": ["White", "Black", "Asian", "Indian", "Others"]
+        "classes": [
+          "White",
+          "Black",
+          "Asian",
+          "Indian",
+          "Others"
+        ]
       }
     ],
     "weights": {
-      "low": "./models/utkface-low-level-model.ckpt",
-      "high": "./models/utkface-high-level-model.ckpt"
+      "low": "${MODELS_DIR}/utkface-low-level-model.ckpt",
+      "high": "${MODELS_DIR}/utkface-high-level-model.ckpt"
     },
     "thresholds": {
-      "low": "./models/utkface-low-level-calibration.json",
-      "high": "./models/utkface-high-level-calibration.json"
+      "low": "${MODELS_DIR}/utkface-low-level-calibration.json",
+      "high": "${MODELS_DIR}/utkface-high-level-calibration.json"
     }
   }
 }
