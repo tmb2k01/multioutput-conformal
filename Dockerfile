@@ -26,6 +26,7 @@ RUN apt-get update && \
     git \
     curl \
     ca-certificates \
+    wget \
     libglib2.0-0 \
     libsm6 \
     libxext6 \
@@ -49,8 +50,6 @@ RUN if [ -n "${TORCH_EXTRA_INDEX_URL}" ]; then \
 
 
 # Pre-download ResNet50 weights
-RUN apt-get update && apt-get install -y --no-install-recommends wget ca-certificates \
-    && rm -rf /var/lib/apt/lists/*
 ENV TORCH_HOME=/home/app/.cache/torch
 RUN mkdir -p ${TORCH_HOME}/hub/checkpoints \
     && wget -q https://download.pytorch.org/models/resnet50-11ad3fa6.pth \

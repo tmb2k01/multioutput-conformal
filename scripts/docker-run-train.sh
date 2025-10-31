@@ -53,6 +53,6 @@ docker run --rm \
   -v "${PROJECT_ROOT}/static:/app/static:ro" \
   -v "${PROJECT_ROOT}/lightning_logs:/app/lightning_logs:rw" \
   -v "${PROJECT_ROOT}/wandb:/app/wandb:rw" \
-  ${DOCKER_RUN_ARGS:-} \
+  ${DOCKER_RUN_ARGS} \
   "${IMAGE_TAG}" \
   --train
