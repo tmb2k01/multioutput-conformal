@@ -21,7 +21,6 @@ fi
 APP_ENVS=(
   -e DATA_DIR=/app/data
   -e MODELS_DIR=/app/models
-  -e PORT=80
 )
 
 echo "Starting web service from image '${IMAGE_TAG}' (container: ${CONTAINER_NAME})"
