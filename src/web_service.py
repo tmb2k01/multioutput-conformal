@@ -276,4 +276,4 @@ def launch():
             outputs=submit_btn,
         )
 
-    ui.launch(server_name="0.0.0.0", server_port=8080)
+    ui.launch()

@@ -14,94 +14,98 @@ The project addresses the following key areas:
 For detailed information about specific components, refer to the following documentation:
 
 - [Data Acquisition](doc/data-acquisition.md): Downloading, organizing, and splitting the dataset for experiments.
+- [Dockerization Overview](doc/docker-overview.md): Container layout, volume mounts, and configurable environment variables.
+- [Docker Workflows](doc/docker-workflows.md): Step-by-step instructions for building the image and running tasks in Docker.
 - [Model Definition](doc/model-definition.md): Architecture and implementation details of the models.
 - [Conformal Prediction](doc/conformal-prediction.md): Overview of the conformal prediction methodology.
 - [Metrics](doc/metrics.md): Evaluation metrics and performance analysis.
 - [Web Interface](doc/web-interface.md): Guide to using the web-based prediction interface.
 
-## Getting Started
+## How to Start
 
-### Prerequisites
+### Without Docker
 
-- Python 3.8 or higher
-- pip package manager
-- Git
+- **Prerequisites:** Python 3.8+, `pip`, and Git.
+- **Clone the repository:**
 
-### Installation
+  ```bash
+  git clone https://github.com/tmb2k01/masters-thesis.git
+  cd masters-thesis
+  ```
 
-1. Clone the repository and navigate to the project directory:
+- **(Recommended) Create a virtual environment:**
 
-```bash
-git clone https://github.com/tmb2k01/masters-thesis.git
-cd masters-thesis
-```
+  ```bash
+  python3 -m venv venv
+  source venv/bin/activate  # On Windows: venv\Scripts\activate
+  ```
 
-2. Create and activate a virtual environment (optional but recommended):
+- **Install dependencies:**
 
-```bash
-python3 -m venv venv
-source venv/bin/activate  # On Windows, use: venv\Scripts\activate
-```
+  ```bash
+  pip install -r requirements.txt
+  ```
 
-3. Install the required dependencies:
+- **Prepare datasets locally:**
 
-```bash
-pip install -r requirements.txt
-```
+  ```bash
+  bash scripts/prepare-data.sh
+  ```
 
-4. Prepare the datasets:
+- **Run training:**
 
-```bash
-bash scripts/prepare-data.sh
-```
+  ```bash
+  python3 -m src.main --train
+  ```
 
-### Docker Workflow
+  Store your Weights & Biases API key in `.wandb_api_key` (or point the
+  `WANDB_API_KEY_FILE` environment variable elsewhere) to enable experiment tracking.
 
-The repository includes a GPU-ready Docker image so you can run training or the web UI without managing local Python environments.
+- **Serve the web interface:**
 
-1. Build the image (override `TORCH_EXTRA_INDEX_URL` with an empty string if you only need CPU wheels):
+  ```bash
+  python3 -m src.main
+  ```
 
-   ```bash
-   scripts/docker-build.sh
-   ```
+  The Gradio UI listens on `http://localhost:7860` by default; adjust behaviour via
+  `static/config.json`.
 
-2. Launch the web interface on `http://localhost:7860` (set `DOCKER_RUN_ARGS="--gpus all"` if you have an NVIDIA GPU exposed via the Container Toolkit):
+### With Docker
 
-   ```bash
-   scripts/docker-run-web.sh
-   ```
+- **Prerequisites:** Docker (24+) and, optionally, the NVIDIA Container Toolkit for GPU support.
+- **Build the image:**
 
-3. Kick off training inside a container. To enable Weights & Biases logging, store your API token in `.wandb_api_key` (or set `WANDB_KEY_FILE` to point at a different file) before running the script:
+  ```bash
+  scripts/docker-build.sh
+  ```
 
-   ```bash
-   scripts/docker-run-train.sh
-   ```
+- **Prepare data inside the container (optional):**
 
-All scripts mount the local `data`, `models`, `wandb`, and `lightning_logs` folders into the container so that checkpoints, calibration artifacts, and experiment logs persist on the host machine. Adjust the `IMAGE_TAG`, `PORT`, `CONTAINER_NAME`, or `DOCKER_RUN_ARGS` environment variables to customize the workflow.
+  ```bash
+  scripts/docker-prepare-data.sh
+  ```
 
-### Usage
+- **Launch training:**
 
-#### Training Models
+  ```bash
+  scripts/docker-run-train.sh
+  ```
 
-To train the models, run:
+  Override host directories or enable GPU support by exporting `DOCKER_RUN_ARGS`,
+  `RUN_AS_HOST_UID`, and the other environment variables documented in
+  `doc/docker-workflows.md`.
 
-```bash
-python3 -m src.main --train
-```
+- **Start the web interface:**
 
-This will start the training process.
+  ```bash
+  scripts/docker-run-web.sh
+  ```
 
-> **Weights & Biases logging:** place your API key in `.wandb_api_key` (or set `WANDB_API_KEY_FILE` to another path) to enable W&B tracking. If the file is missing, empty, or the key is invalid, training automatically falls back to the default Lightning logger.
+  Set `PORT=7860` (or any free port) to control the host binding. Models are read
+  from the mounted `models` directory.
 
-#### Starting the Web Service
-
-To start the web interface for making predictions:
-
-```bash
-python3 -m src.main
-```
-
-The web service will be available at `http://localhost:7860` by default and using the configurations specified in `static/config.json`.
+For detailed explanations of the container layout, volume mounts, and environment
+variables, consult the Docker documentation linked above.
 
 ## Project Structure
 

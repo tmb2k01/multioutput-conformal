@@ -19,6 +19,7 @@ if [ ! -d "data/SGVehicle" ]; then
     mkdir -p data/SGVehicle
 fi
 tar -xzf data/SGVEHICLE_dataset.tar.gz -C data/SGVehicle
+rm data/SGVEHICLE_dataset.tar.gz
 
 if command -v python &>/dev/null; then
     python scripts/download_utkface.py
@@ -31,9 +32,9 @@ fi
 tar -xzf data/UTKFace_dataset_1.tar.gz -C data/UTKFace
 tar -xzf data/UTKFace_dataset_2.tar.gz -C data/UTKFace
 tar -xzf data/UTKFace_dataset_3.tar.gz -C data/UTKFace
+rm data/UTKFace_dataset_1.tar.gz data/UTKFace_dataset_2.tar.gz data/UTKFace_dataset_3.tar.gz
 
-
-
+echo "Preprocessing datasets..."
 if command -v python &>/dev/null; then
     python scripts/prepare-sgvehicle-dataset.py
     python scripts/prepare-utkface-dataset.py

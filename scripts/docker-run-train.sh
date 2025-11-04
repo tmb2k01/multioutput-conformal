@@ -21,6 +21,14 @@ if [[ "${RUN_AS_HOST_UID:-1}" != "0" ]]; then
   USER_FLAGS=(--user "$(id -u)":"$(id -g)")
 fi
 
+# Detect docker GPU runtime
+GPU_ARGS=()
+if docker info --format '{{json .Runtimes}}' 2>/dev/null | grep -qi '"nvidia"'; then
+  if command -v nvidia-smi >/dev/null 2>&1; then
+    GPU_ARGS=(--gpus all)
+  fi
+fi
+
 WANDB_ARGS=(
   -e WANDB_MODE=online
   -e WANDB_DIR=/app/wandb
@@ -42,10 +50,11 @@ APP_ENVS=(
 echo "Running training from image '${IMAGE_TAG}' (container: ${CONTAINER_NAME})"
 echo "Host data dir  : ${HOST_DATA_DIR}"
 echo "Host models dir: ${HOST_MODELS_DIR}"
+echo "GPU args: ${GPU_ARGS[*]:-(none)}"
 
 docker run --rm \
   --name "${CONTAINER_NAME}" \
-  --gpus all \
+  "${GPU_ARGS[@]}" \
   ${DOCKER_RUN_ARGS} \
   "${USER_FLAGS[@]}" \
   "${WANDB_ARGS[@]}" \
