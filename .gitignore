@@ -179,8 +179,7 @@ cython_debug/
 data/
 !src/data/
 
-models/
-!src/models/
+artifacts/
 
 wandb/
 lightning_logs/

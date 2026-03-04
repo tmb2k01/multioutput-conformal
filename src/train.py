@@ -2,18 +2,16 @@ import json
 import math
 import os
 from pathlib import Path
-from typing import Union
 
 import numpy as np
 import pytorch_lightning as pl
 import torch
-import wandb
 
-from src.calibration.calibration import calibration
-from src.data.multi_output_dataset import MultiOutputDataModule
-from src.models.high_level_model import HighLevelModel
-from src.models.low_level_model import LowLevelModel
-from src.models.model_utils import convert_multitask_preds
+import wandb
+from calibration.calibration import calibration
+from core.models import HighLevelModel, LowLevelModel
+from core.utils import convert_multitask_preds
+from data.datamodule import MultiOutputDataModule
 
 
 # ---------- path helpers ----------
@@ -40,13 +38,13 @@ def convert_numpy_to_native(obj):
 
 # ---------- core ----------
 def calibrate_model(
-    model: Union[HighLevelModel, LowLevelModel],
+    model: HighLevelModel | LowLevelModel,
     datamodule: MultiOutputDataModule,
     filename: str,
     alpha: float = 0.05,
-    n_clusters: Union[str, int] = "auto",
+    n_clusters: str | int = "auto",
     model_dir: str = MODELS_DIR_DEFAULT,
-):
+) -> None:
     high_level = isinstance(model, HighLevelModel)
 
     model.eval()
@@ -120,11 +118,11 @@ def train_model(
     root_dir: str,
     filename: str,
     task_num_classes,
-    model: Union[HighLevelModel, LowLevelModel],
+    model: HighLevelModel | LowLevelModel,
     model_dir: str = MODELS_DIR_DEFAULT,
     alpha: float = 0.05,
-    calibration_clusters: Union[str, int] = "auto",
-):
+    calibration_clusters: str | int = "auto",
+) -> None:
     root_dir = str(_expand_path(root_dir))
     model_dir = str(_expand_path(os.path.expandvars(os.path.expanduser(model_dir))))
 
@@ -178,7 +176,7 @@ def train_model(
 CONFIG_PATH = _expand_path("./static/train-config.json")
 
 
-def train():
+def train() -> None:
     print(f"Is CUDA available: {torch.cuda.is_available()}")
 
     # ensure models dir exists

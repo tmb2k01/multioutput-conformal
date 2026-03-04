@@ -1,0 +1,26 @@
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+# Enable rule groups
+select = [
+    "E", "F", "I", "B", "UP", "ANN", "C4", "SIM", "N", "RET"
+]
+
+ignore = [
+    "ANN101",  # missing type for self
+    "ANN102",  # missing type for cls
+]
+
+extend-ignore = ["N803", "N806"]
+
+fix = true
+show-fixes = true
+
+exclude = [
+    ".git",
+    ".venv",
+    "__pycache__",
+    "build",
+    "dist",
+]

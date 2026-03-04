@@ -1,22 +1,23 @@
-import os
-
-from src.train import train
-from src.web_service import launch
-import argparse
 
 
-def main():
-    parser = argparse.ArgumentParser(description="Run training or launch web service.")
-    parser.add_argument("--train", action="store_true", help="Run in training mode")
-    args = parser.parse_args()
+from core.calibrators import HighLevelCalibrator
+from core.models import HighLevelModel
+from core.predictor import ConformalPredictor
 
-    if args.train:
-        print("Training the model...")
-        train()
-    else:
-        print("Starting the web service...")
-        launch()
 
+def main() -> None:
+    # predictor = ConformalPredictor.build(
+    #     model_cls=HighLevelModel,
+    #     calibrator_cls=HighLevelCalibrator,
+    #     task_num_classes=[2, 5],
+    #     cp_type="ccp_class_thresholds")
+    # predictor.fit(data_root="./data/UTKFace", max_epochs=1)
+
+    predictor = ConformalPredictor.load(
+        model_cls=HighLevelModel,
+        calibrator_cls=HighLevelCalibrator,
+        task_num_classes=[2, 5],
+        cp_type="ccp_class_thresholds")
 
 if __name__ == "__main__":
     main()

@@ -1,10 +1,9 @@
-from typing import List, Tuple
 
 import numpy as np
 
 
 def quantile_embedding(
-    samples: np.ndarray, q: Tuple[float, ...] = (0.5, 0.6, 0.7, 0.8, 0.9)
+    samples: np.ndarray, q: tuple[float, ...] = (0.5, 0.6, 0.7, 0.8, 0.9)
 ) -> np.ndarray:
     """
     Compute the q-quantiles of the given samples.
@@ -22,7 +21,7 @@ def quantile_embedding(
 def embed_all_classes(
     scores_all: np.ndarray,
     labels: np.ndarray,
-    q: Tuple[float, ...] = (0.5, 0.6, 0.7, 0.8, 0.9),
+    q: tuple[float, ...] = (0.5, 0.6, 0.7, 0.8, 0.9),
     return_cts=False,
 ):
     """
@@ -55,9 +54,9 @@ def embed_all_classes(
 def embed_all_tasks(
     scores_all: np.ndarray,
     labels: np.ndarray,
-    q: Tuple[float, ...] = (0.5, 0.6, 0.7, 0.8, 0.9),
+    q: tuple[float, ...] = (0.5, 0.6, 0.7, 0.8, 0.9),
     return_cts=False,
-) -> List[np.ndarray]:
+) -> list[np.ndarray]:
     """
     Compute task-wise and class-wise quantile embeddings from prediction scores.
 

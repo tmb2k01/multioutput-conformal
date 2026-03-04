@@ -1,0 +1,336 @@
+from __future__ import annotations
+
+from abc import ABC, abstractmethod
+from dataclasses import dataclass
+from typing import Any, cast
+
+import numpy as np
+
+from calibration.calibration_utils import (
+    CALIBRATION_FN_HIGH_DIC,
+    CALIBRATION_FN_LOW_DIC,
+    CLUSTER_FN_DIC,
+)
+from calibration.conformal_prediction import clustered_prediction, standard_prediction
+from calibration.nonconformity_functions import NONCONFORMITY_FN_DIC
+from core.thresholds_io import load_thresholds, save_thresholds
+from core.utils import expand_path
+
+from .types import CalibrationFn, Level, ThresholdBundle
+
+
+# -----------------------------
+# Friendly errors
+# -----------------------------
+class CalibratorConfigError(ValueError):
+    """Raised when a calibrator is misconfigured (bad keys, missing functions, etc.)."""
+
+
+class CalibratorDataError(ValueError):
+    """Raised when inputs to fit/predict have incompatible shapes or values."""
+
+
+class CalibratorStateError(RuntimeError):
+    """Raised when calling predict/load/save in the wrong state."""
+
+
+def _available_keys_msg(mapping_name: str, keys: list[str], limit: int = 30) -> str:
+    keys_sorted = sorted(keys)
+    shown = keys_sorted[:limit]
+    suffix = (
+        "" if len(keys_sorted) <= limit else f" (and {len(keys_sorted) - limit} more)"
+    )
+    return f"Available {mapping_name} keys: {shown}{suffix}"
+
+
+def _get_from_dict(d: dict, key: str, *, what: str) -> Any:
+    try:
+        return d[key]
+    except KeyError as e:
+        msg = f"Unknown {what} key '{key}'. {_available_keys_msg(what, list(d.keys()))}"
+        raise CalibratorConfigError(msg) from e
+
+
+def _round_alpha(alpha: float) -> float:
+    if not np.isfinite(alpha):
+        raise CalibratorConfigError(f"alpha must be a finite float. Got {alpha!r}.")
+    if not (0.0 < float(alpha) < 1.0):
+        raise CalibratorConfigError(f"alpha must be in (0, 1). Got {alpha!r}.")
+    rounded = round(float(alpha), 4)
+    if abs(float(alpha) - rounded) > 1e-4:
+        # keep as warning, but not an exception
+        print(f"Warning: alpha {alpha} rounded to {rounded}")
+    return rounded
+
+
+# -----------------------------
+# Calibrators
+# -----------------------------
+class BaseCalibrator(ABC):
+    """
+    Abstract calibrator:
+      - computes GT nonconformity scores from model outputs + labels
+      - runs a calibration function -> thresholds (ThresholdBundle)
+      - saves/loads thresholds
+
+    Children implement:
+      - level()
+      - fit()
+      - predict()
+    """
+
+    def __init__(
+        self,
+        *,
+        calibrationFn: CalibrationFn,
+        calibrationFnKey: str,
+        nonconformityFnKey: str,
+        artifacts_dir: str = "./artifacts",
+        alpha: float | None = None,
+        load_on_init: bool = False,
+    ) -> None:
+        if calibrationFn is None:
+            raise CalibratorConfigError("calibration_fn must be provided.")
+        if not calibrationFnKey:
+            raise CalibratorConfigError("calibration_key must be a non-empty string.")
+        if not nonconformityFnKey:
+            raise CalibratorConfigError("nonconformity_key must be a non-empty string.")
+        if load_on_init and alpha is None:
+            raise CalibratorConfigError(
+                "alpha must be provided when load_on_init=True."
+            )
+        self.calibrationFn = calibrationFn
+        self.calibrationFnKey = calibrationFnKey
+
+        self.nonconformityFnKey = nonconformityFnKey
+        self.nonconformityFn = _get_from_dict(
+            NONCONFORMITY_FN_DIC, nonconformityFnKey, what="nonconformity"
+        )
+
+        self.artifacts_dir = expand_path(artifacts_dir)
+        self.thresholds_root = self.artifacts_dir / "thresholds"
+
+        self.thresholds: ThresholdBundle | None = None
+
+        if load_on_init:
+            alpha = _round_alpha(alpha)
+            self.load_thresholds(alpha)
+
+    def _thr_path(self, alpha: float) -> str:
+        base = (
+            f"{self.level}/"
+            f"{self.nonconformityFnKey}/"
+            f"{self.calibrationFnKey}/"
+            f"alpha_{alpha:.2f}.json"
+        )
+        return f"{self.thresholds_root}/{base}" if self.thresholds_root else base
+
+    @property
+    @abstractmethod
+    def level(self) -> Level:
+        raise NotImplementedError
+
+    def fit(
+        self, model_outputs: Any, labels: np.ndarray, alpha: float, **kwargs
+    ) -> ThresholdBundle:
+        alpha = _round_alpha(alpha)
+
+        if self.calibrationFn in CLUSTER_FN_DIC.values():
+            n_clusters = kwargs.get("n_clusters", "auto")
+
+        gt_scores = self.compute_gt_nonconformity(model_outputs, labels)
+
+        q = self.calibrationFn(
+            gt_scores,
+            labels,
+            alpha,
+            n_clusters=(
+                n_clusters
+                if self.calibrationFn in CLUSTER_FN_DIC.values()
+                else None
+            ),
+        )
+
+
+        payload = (
+            {"q_hat": float(cast(int | float, q))} if np.isscalar(q) else q
+        )
+
+        bundle = ThresholdBundle(
+            level=self.level,
+            nonconformity_key=self.nonconformityFnKey,
+            calibration_key=self.calibrationFnKey,
+            alpha=alpha,
+            payload=payload,
+        )
+        self.thresholds = bundle
+        self._save_thresholds(bundle)
+        return bundle
+
+    @abstractmethod
+    def predict(self, batch_outputs: Any) -> list[np.ndarray] | list[list[np.ndarray]]:
+        raise NotImplementedError
+
+    @abstractmethod
+    def compute_gt_nonconformity(
+        self, outputs: list[np.ndarray] | np.ndarray, labels: np.ndarray
+    ) -> dict[str, np.ndarray | list[np.ndarray]]:
+        raise NotImplementedError
+
+    def load_thresholds(self, alpha: float) -> ThresholdBundle:
+        alpha = _round_alpha(alpha)
+        path = self._thr_path(alpha)
+        try:
+            self.thresholds = load_thresholds(path)
+        except FileNotFoundError as e:
+            raise CalibratorStateError(
+                f"Threshold file not found at '{path}'. "
+                f"Run fit(...) first or verify thresholds_root/keys/alpha."
+            ) from e
+        except Exception as e:
+            raise CalibratorStateError(
+                f"Failed to load thresholds from '{path}': {e}"
+            ) from e
+        return self.thresholds
+
+    def _save_thresholds(self, bundle: ThresholdBundle) -> None:
+        path = self._thr_path(bundle.alpha)
+        try:
+            save_thresholds(bundle, path)
+        except Exception as e:
+            raise CalibratorStateError(
+                f"Failed to save thresholds to '{path}': {e}"
+            ) from e
+
+
+@dataclass
+class HighLevelCalibrator(BaseCalibrator):
+    calibrationFnKey: str
+    nonconformityFnKey: str
+    load_thresholds: bool = False
+    alpha: float = 0.05
+    artifacts_dir: str = "./artifacts"
+
+    def __post_init__(self) -> None:
+        calibrationFn = _get_from_dict(
+            CALIBRATION_FN_HIGH_DIC,
+            self.calibrationFnKey,
+            what="high-level calibration",
+        )
+        super().__init__(
+            calibrationFn=calibrationFn,
+            calibrationFnKey=self.calibrationFnKey,
+            nonconformityFnKey=self.nonconformityFnKey,
+            load_on_init=self.load_thresholds,
+            artifacts_dir=self.artifacts_dir,
+        )
+
+    @property
+    def level(self) -> Level:
+        return "high"
+
+    # TODO: Fix
+    def predict(self, batch_outputs: Any) -> list[np.ndarray] | list[list[np.ndarray]]:
+        if self.thresholds is None:
+            raise CalibratorStateError(
+                "Thresholds are not available. Call fit(...) or load_thresholds(...)."
+            )
+
+        scores = np.asarray(self.nonconformityFn(batch_outputs))
+        payload = self.thresholds.payload
+
+        # Standard thresholds (SCP / CCP without clusters)
+        if "q_hat" in payload:
+            q_hat = float(payload["q_hat"])
+            return standard_prediction(
+                scores, q_hat
+            )  # -> list[np.ndarray] (per-sample indices)
+
+        if "q_hats" in payload:
+            q_hats = np.asarray(payload["q_hats"], dtype=float).reshape(-1)
+            if q_hats.shape[0] != scores.shape[0]:
+                raise CalibratorDataError(
+                    f"Threshold vector length mismatch. Expected {scores.shape[0]}, got {q_hats.shape[0]}."
+                )
+            if not np.all(np.isfinite(q_hats)):
+                raise CalibratorDataError(
+                    "q_hats contains non-finite values (NaN/inf)."
+                )
+            return standard_prediction(scores, q_hats)  # broadcast (B,) -> (B,C)
+
+        # Clustered thresholds (clustered CCP)
+        return clustered_prediction(scores, payload)
+
+    def compute_gt_nonconformity(
+        self, outputs: list[np.ndarray], labels: np.ndarray
+    ) -> list[np.ndarray]:
+        taskwise = []
+        for task_score, task_label in zip(outputs, labels, strict=False):
+            full_scores = self.nonconformityFn(task_score)
+            gt_scores = full_scores[np.arange(task_score.shape[0]), task_label]  # (B,)
+            taskwise.append(gt_scores)
+        return np.stack(taskwise)
+
+
+@dataclass
+class LowLevelCalibrator(BaseCalibrator):
+    calibrationFnKey: str
+    nonconformityFnKey: str
+    load_thresholds: bool = False
+    alpha: float = 0.05
+    artifacts_dir: str = "./artifacts"
+
+    def __post_init__(self) -> None:
+        calibration_fn = _get_from_dict(
+            CALIBRATION_FN_LOW_DIC, self.calibrationFnKey, what="low-level calibration"
+        )
+        super().__init__(
+            calibrationFn=calibration_fn,
+            calibrationFnKey=self.calibrationFnKey,
+            nonconformityFnKey=self.nonconformityFnKey,
+            alpha=self.alpha,
+            load_on_init=self.load_thresholds,
+            artifacts_dir=self.artifacts_dir,
+        )
+
+    @property
+    def level(self) -> Level:
+        return "low"
+
+    # TODO: Fix
+    def predict(self, batch_outputs: Any) -> list[np.ndarray] | list[list[np.ndarray]]:
+        if self.thresholds is None:
+            raise CalibratorStateError(
+                "Thresholds are not available. Call fit(...) or load_thresholds(...)."
+            )
+
+        scores = np.asarray(self.nonconformityFn(batch_outputs))
+
+        payload = self.thresholds.payload
+
+        # Standard thresholds (SCP / CCP without clusters)
+        if "q_hat" in payload:
+            q_hat = float(payload["q_hat"])
+            return standard_prediction(scores, q_hat)
+
+        if "q_hats" in payload:
+            q_hats = np.asarray(payload["q_hats"], dtype=float).reshape(-1)
+            if q_hats.shape[0] != scores.shape[0]:
+                raise CalibratorDataError(
+                    f"Threshold vector length mismatch. Expected {scores.shape[0]}, got {q_hats.shape[0]}."
+                )
+            if not np.all(np.isfinite(q_hats)):
+                raise CalibratorDataError(
+                    "q_hats contains non-finite values (NaN/inf)."
+                )
+            return standard_prediction(scores, q_hats)
+
+        # Clustered thresholds (clustered CCP)
+        return clustered_prediction(scores, payload)
+
+    def compute_gt_nonconformity(
+        self, outputs: np.ndarray, labels: np.ndarray
+    ) -> np.ndarray:
+        full_scores = self.nonconformityFn(outputs)  # (B, C)
+        gt_scores = full_scores[np.arange(outputs.shape[0]), labels]  # (B,)
+        return gt_scores  # shape (B,)

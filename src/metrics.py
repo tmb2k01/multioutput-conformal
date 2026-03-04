@@ -1,9 +1,8 @@
-from typing import List
 
 import numpy as np
 
 
-def compute_informativeness(predictions: List[np.ndarray]) -> float:
+def compute_informativeness(predictions: list[np.ndarray]) -> float:
     """
     Computes informativeness as the proportion of singleton prediction sets.
 
@@ -16,7 +15,7 @@ def compute_informativeness(predictions: List[np.ndarray]) -> float:
     return sum(1 for pred in predictions if pred.size == 1) / len(predictions)
 
 
-def compute_taskwise_informativeness(predictions: List[List[np.ndarray]]) -> np.ndarray:
+def compute_taskwise_informativeness(predictions: list[list[np.ndarray]]) -> np.ndarray:
     """
     Computes informativeness for each task individually.
 
@@ -29,7 +28,7 @@ def compute_taskwise_informativeness(predictions: List[List[np.ndarray]]) -> np.
     return np.array([compute_informativeness(task_preds) for task_preds in predictions])
 
 
-def compute_overall_informativeness(predictions: List[List[np.ndarray]]) -> float:
+def compute_overall_informativeness(predictions: list[list[np.ndarray]]) -> float:
     """
     Computes the average informativeness across all tasks.
 
@@ -42,7 +41,7 @@ def compute_overall_informativeness(predictions: List[List[np.ndarray]]) -> floa
     return np.mean(compute_taskwise_informativeness(predictions))
 
 
-def compute_efficiency(predictions: List[np.ndarray]) -> float:
+def compute_efficiency(predictions: list[np.ndarray]) -> float:
     """
     Computes efficiency as the average size of the prediction sets.
 
@@ -55,7 +54,7 @@ def compute_efficiency(predictions: List[np.ndarray]) -> float:
     return sum(len(pred) for pred in predictions) / len(predictions)
 
 
-def compute_taskwise_efficiency(predictions: List[List[np.ndarray]]) -> np.ndarray:
+def compute_taskwise_efficiency(predictions: list[list[np.ndarray]]) -> np.ndarray:
     """
     Computes efficiency for each task individually.
 
@@ -68,7 +67,7 @@ def compute_taskwise_efficiency(predictions: List[List[np.ndarray]]) -> np.ndarr
     return np.array([compute_efficiency(task_preds) for task_preds in predictions])
 
 
-def compute_overall_efficiency(predictions: List[List[np.ndarray]]) -> float:
+def compute_overall_efficiency(predictions: list[list[np.ndarray]]) -> float:
     """
     Computes the average efficiency across all tasks.
 
@@ -82,7 +81,7 @@ def compute_overall_efficiency(predictions: List[List[np.ndarray]]) -> float:
 
 
 def compute_weighted_efficiency(
-    predictions: List[List[np.ndarray]],
+    predictions: list[list[np.ndarray]],
     task_weights: np.ndarray,
     normalize_weights: bool = True,
 ) -> float:
@@ -106,7 +105,7 @@ def compute_weighted_efficiency(
 
 
 def compute_weighted_informativeness(
-    predictions: List[List[np.ndarray]],
+    predictions: list[list[np.ndarray]],
     task_weights: np.ndarray,
     normalize_weights: bool = True,
 ) -> float:
@@ -129,7 +128,7 @@ def compute_weighted_informativeness(
     return np.sum(taskwise_info * task_weights)
 
 
-def compute_class_based_weights(task_num_classes: List[int]) -> np.ndarray:
+def compute_class_based_weights(task_num_classes: list[int]) -> np.ndarray:
     """
     Computes task weights based on the number of classes in each task.
     Tasks with fewer classes get lower weights.
@@ -145,7 +144,7 @@ def compute_class_based_weights(task_num_classes: List[int]) -> np.ndarray:
 
 
 def compute_classwise_coverage(
-    predictions: List[np.ndarray], labels: np.ndarray, num_classes: int
+    predictions: list[np.ndarray], labels: np.ndarray, num_classes: int
 ) -> np.ndarray:
     """
     Computes empirical class-conditional coverage for a single task.
@@ -169,9 +168,9 @@ def compute_classwise_coverage(
 
 
 def compute_overall_covgap(
-    predictions: List[List[np.ndarray]],
-    labels: List[np.ndarray],
-    task_num_classes: List[int],
+    predictions: list[list[np.ndarray]],
+    labels: list[np.ndarray],
+    task_num_classes: list[int],
     alpha: float,
 ) -> float:
     """
@@ -187,7 +186,7 @@ def compute_overall_covgap(
         float: CovGap value.
     """
     all_coverages = []
-    for preds, lbls, C in zip(predictions, labels, task_num_classes):
+    for preds, lbls, C in zip(predictions, labels, task_num_classes, strict=False):
         class_cov = compute_classwise_coverage(preds, lbls, C)
         all_coverages.extend(class_cov)
 

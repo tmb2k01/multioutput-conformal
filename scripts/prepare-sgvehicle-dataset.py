@@ -7,8 +7,8 @@ data_dir = "data/SGVehicle"
 dataset_dir = os.path.join(data_dir, "Gen_img")
 
 
-def save_split_data(X_split, y_split, split_name):
-    for filename, labels in zip(X_split, y_split):
+def save_split_data(X_split, y_split, split_name) -> None:
+    for filename, labels in zip(X_split, y_split, strict=False):
         src_path = os.path.join(dataset_dir, filename)
         dest_path = os.path.join(data_dir, split_name, "images", filename)
         os.makedirs(os.path.dirname(dest_path), exist_ok=True)
@@ -20,8 +20,8 @@ def save_split_data(X_split, y_split, split_name):
             f.write(f"{labels[0]} {labels[1]}")
 
 
-def prepare_dataset():
-    file_paths = [filename for filename in os.listdir(dataset_dir)]
+def prepare_dataset() -> None:
+    file_paths = list(os.listdir(dataset_dir))
     color_labels = []
     type_labels = []
     filtered_files = []
@@ -37,7 +37,7 @@ def prepare_dataset():
             print(f"Skipping invalid filename: {filename}")
 
     X = filtered_files
-    y = list(zip(color_labels, type_labels))
+    y = list(zip(color_labels, type_labels, strict=False))
     X_train, X_temp, y_train, y_temp = train_test_split(
         X, y, test_size=0.4, random_state=42
     )  # 60% train, 40% temp
@@ -59,7 +59,7 @@ def prepare_dataset():
     shutil.rmtree(dataset_dir)
 
 
-def main():
+def main() -> None:
     prepare_dataset()
 
 

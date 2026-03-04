@@ -1,13 +1,11 @@
-from typing import List, Union
 
 import numpy as np
-import torch
 
 
 def _get_prediction_set(
-    nonconformity_scores: Union[np.ndarray, List[np.ndarray]],
-    thresholds: Union[float, np.ndarray, List[np.ndarray]],
-) -> Union[np.ndarray, List[np.ndarray]]:
+    nonconformity_scores: np.ndarray | list[np.ndarray],
+    thresholds: float | np.ndarray | list[np.ndarray],
+) -> np.ndarray | list[np.ndarray]:
     """
     Internal helper to compute prediction sets where each class is included if its nonconformity
     score is less than or equal to the corresponding threshold.
@@ -38,28 +36,27 @@ def _get_prediction_set(
             task_thresholds = np.broadcast_to(task_thresholds, task_scores.shape)
         return [
             np.where(row <= thresh)[0]
-            for row, thresh in zip(task_scores, task_thresholds)
+            for row, thresh in zip(task_scores, task_thresholds, strict=False)
         ]
 
     if isinstance(nonconformity_scores, np.ndarray):
         return compute_task(nonconformity_scores, thresholds)
 
-    elif isinstance(nonconformity_scores, list):
+    if isinstance(nonconformity_scores, list):
         if np.isscalar(thresholds) or isinstance(thresholds, np.ndarray):
             thresholds = np.full(len(nonconformity_scores), thresholds)
         return [
             compute_task(scores, thresh)
-            for scores, thresh in zip(nonconformity_scores, thresholds)
+            for scores, thresh in zip(nonconformity_scores, thresholds, strict=False)
         ]
 
-    else:
-        raise ValueError("nonconformity_scores must be an ndarray or list of ndarrays.")
+    raise ValueError("nonconformity_scores must be an ndarray or list of ndarrays.")
 
 
 def standard_prediction(
-    nonconformity_scores: Union[np.ndarray, List[np.ndarray]],
-    q_hat: Union[float, np.ndarray, List[np.ndarray]],
-) -> Union[np.ndarray, List[np.ndarray]]:
+    nonconformity_scores: np.ndarray | list[np.ndarray],
+    q_hat: float | np.ndarray | list[np.ndarray],
+) -> np.ndarray | list[np.ndarray]:
     """
     Computes prediction sets using standard (global or task-wise) conformal prediction thresholds.
     Can be used for:
@@ -109,19 +106,18 @@ def _extract_qhat_and_clusters(data: dict):
                 clusters.append(data["class_to_cluster_mapping"][task_id])
                 q_hat.append(q_hat_shared)
         return q_hat, clusters
-    else:
-        q_hat = []
-        clusters = []
-        for task_id in sorted(data.keys()):
-            q_hat.append(data[task_id]["qhats"])
-            clusters.append(data[task_id]["mapping"])
-        return q_hat, clusters
+    q_hat = []
+    clusters = []
+    for task_id in sorted(data.keys()):
+        q_hat.append(data[task_id]["qhats"])
+        clusters.append(data[task_id]["mapping"])
+    return q_hat, clusters
 
 
 def clustered_prediction(
-    nonconformity_scores: Union[np.ndarray, List[np.ndarray]],
-    q_hat_data: Union[np.ndarray, List[np.ndarray]],
-) -> Union[np.ndarray, List[np.ndarray]]:
+    nonconformity_scores: np.ndarray | list[np.ndarray],
+    q_hat_data: np.ndarray | list[np.ndarray],
+) -> np.ndarray | list[np.ndarray]:
     """
     Computes prediction sets using class-cluster-specific thresholds.
     This is used for Clustered Class-Conditional Prediction (CCP).

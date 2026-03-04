@@ -1,9 +1,10 @@
-from typing import Callable, Counter, Dict, List, Tuple, Union
+from collections import Counter
+from collections.abc import Callable
 
 import numpy as np
 from sklearn.cluster import AgglomerativeClustering, KMeans
 
-from src.calibration.clustering_utils import (
+from calibration.clustering_utils import (
     embed_all_classes,
     embed_all_tasks,
     get_clustering_parameters,
@@ -116,7 +117,7 @@ def compute_qhat_ccp_class(
     true_labels: np.ndarray,
     alpha: float,
     **kwargs,
-) -> Union[np.ndarray, List[np.ndarray]]:
+) -> np.ndarray | list[np.ndarray]:
     """
     Compute the q-hat values for the CCP class-wise calibration method.
 
@@ -164,20 +165,19 @@ def compute_qhat_ccp_class(
     if nonconformity_scores.ndim == 2:
         return [
             vectorized_qhat(scores_t, labels_t)
-            for scores_t, labels_t in zip(nonconformity_scores, true_labels)
+            for scores_t, labels_t in zip(nonconformity_scores, true_labels, strict=False)
         ]
 
-    else:
-        return vectorized_qhat(nonconformity_scores, true_labels)
+    return vectorized_qhat(nonconformity_scores, true_labels)
 
 
 def compute_qhat_ccp_task_cluster(
     nonconformity_scores: np.ndarray,
     true_labels: np.ndarray,
     alpha: float,
-    n_clusters: Union[int, str] = "auto",
+    n_clusters: int | str = "auto",
     cluster_method: str = "kmeans",
-    q: Tuple[float, ...] = (0.5, 0.6, 0.7, 0.8, 0.9),
+    q: tuple[float, ...] = (0.5, 0.6, 0.7, 0.8, 0.9),
 ) -> dict:
     """
     Compute q-hat values per task using Clustered Conformal Prediction (CCP).
@@ -303,9 +303,9 @@ def compute_qhat_ccp_global_cluster(
     nonconformity_scores: np.ndarray,
     true_labels: np.ndarray,
     alpha: float,
-    n_clusters: Union[int, str] = "auto",
+    n_clusters: int | str = "auto",
     cluster_method: str = "kmeans",
-    q: Tuple[float, ...] = (0.5, 0.6, 0.7, 0.8, 0.9),
+    q: tuple[float, ...] = (0.5, 0.6, 0.7, 0.8, 0.9),
 ) -> dict:
     """
     Compute the q-hat value for the Clastered Conformal Prediction method globally.
@@ -413,7 +413,7 @@ def compute_qhat_ccp_global_cluster(
     return result
 
 
-CALIBRATION_FN_HIGH_DIC: Dict[str, Callable[..., float]] = {
+CALIBRATION_FN_HIGH_DIC: dict[str, Callable[..., float]] = {
     "scp_global_threshold": compute_qhat_scp_global,
     "scp_task_thresholds": compute_qhat_scp_task,
     "ccp_class_thresholds": compute_qhat_ccp_class,
@@ -421,8 +421,13 @@ CALIBRATION_FN_HIGH_DIC: Dict[str, Callable[..., float]] = {
     "ccp_global_cluster_thresholds": compute_qhat_ccp_global_cluster,
 }
 
-CALIBRATION_FN_LOW_DIC: Dict[str, Callable[..., float]] = {
+CALIBRATION_FN_LOW_DIC: dict[str, Callable[..., float]] = {
     "scp_global_threshold": compute_qhat_scp_global,
     "ccp_class_thresholds": compute_qhat_ccp_class,
     "ccp_global_clusters": compute_qhat_ccp_global_cluster,
+}
+
+CLUSTER_FN_DIC: dict[str, Callable[..., dict]] = {
+    "ccp_task_cluster_thresholds": compute_qhat_ccp_task_cluster,
+    "ccp_global_cluster_thresholds": compute_qhat_ccp_global_cluster,
 }

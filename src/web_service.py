@@ -8,9 +8,8 @@ import numpy as np
 import torch
 import torchvision.transforms as T
 
-from src.calibration.nonconformity_functions import NONCONFORMITY_FN_DIC
-from src.models.high_level_model import HighLevelModel
-from src.models.low_level_model import LowLevelModel
+from calibration.nonconformity_functions import NONCONFORMITY_FN_DIC
+from core.models import HighLevelModel, LowLevelModel
 
 
 # ---------- helpers ----------
@@ -71,7 +70,7 @@ def load_model(level: str, model_type: str):
 def load_thresholds(model_type: str, level: str, score_type: str):
     t_raw = CONFIG[model_type]["thresholds"][level.lower()]
     threshold_path = _expand_path(t_raw)
-    with open(threshold_path, "r") as f:
+    with open(threshold_path) as f:
         all_thresholds = json.load(f)
     return all_thresholds.get(score_type, {})
 
@@ -188,17 +187,16 @@ def predict(image, level, model_type, nonconformity_type, cp_type):
     )
 
     internal_cp_type = CP_TYPE_MAPPING.get(cp_type, "scp_global")
-    table = generate_table_data(
+    return generate_table_data(
         model_type,
         level,
         scores=scores.tolist(),
         cp_type=internal_cp_type,
         score_type=nonconformity_type,
     )
-    return table
 
 
-def launch():
+def launch() -> None:
     default_model = next(iter(CONFIG))
     column_names = ["Task", "Class", "Score", "Threshold"]
 

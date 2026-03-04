@@ -1,5 +1,29 @@
+import os
+from pathlib import Path
+from typing import Any
+
 import numpy as np
 
+
+def expand_path(p: str | Path) -> Path:
+    return Path(os.path.expanduser(os.path.expandvars(str(p))))
+
+def ensure_parent(path: Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+
+def convert_numpy_to_native(obj: Any) -> Any:
+    """Make calibration output JSON serializable."""
+    import numpy as np
+
+    if isinstance(obj, np.ndarray):
+        return obj.tolist()
+    if isinstance(obj, (np.integer, np.floating)):
+        return obj.item()
+    if isinstance(obj, dict):
+        return {k: convert_numpy_to_native(v) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [convert_numpy_to_native(x) for x in obj]
+    return obj
 
 def convert_multitask_preds(calib_preds):
     """
@@ -28,5 +52,4 @@ def convert_multitask_preds(calib_preds):
         for t, task_output in enumerate(batch):
             task_outputs[t].append(task_output)
 
-    calib_preds_np = [np.concatenate(task, axis=0) for task in task_outputs]
-    return calib_preds_np
+    return [np.concatenate(task, axis=0) for task in task_outputs]
