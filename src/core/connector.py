@@ -5,9 +5,16 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 
 import numpy as np
+import torch
 
 from core.utils import convert_multitask_preds
 
+def _to_numpy(x):
+    if isinstance(x, np.ndarray):
+        return x
+    if torch.is_tensor(x):
+        return x.detach().cpu().numpy()
+    return np.asarray(x)
 
 class LabelSpaceConnector(ABC):
     """
@@ -30,7 +37,7 @@ class LabelSpaceConnector(ABC):
         return mult
 
     @abstractmethod
-    def pred_to_calib(self, y: np.ndarray) -> np.ndarray:
+    def pred_to_calib(self, preds: np.ndarray) -> np.ndarray:
         """
         Convert labels to the representation used by the calibrator/model at that level.
         """
@@ -53,8 +60,8 @@ class HighToHighLabelConnector(LabelSpaceConnector):
     def __post_init__(self) -> None:
         super().__init__(self.n_classes_per_task)
 
-    def pred_to_calib(self, y: np.ndarray) -> np.ndarray:
-        return convert_multitask_preds(y)
+    def pred_to_calib(self, preds: np.ndarray) -> np.ndarray:
+        return convert_multitask_preds(preds)
 
     def gt_to_calib(self, labels: np.ndarray) -> np.ndarray:
         return labels
@@ -69,9 +76,9 @@ class LowToLowLabelConnector(LabelSpaceConnector):
     def __post_init__(self) -> None:
         super().__init__(self.n_classes_per_task)
 
-    def pred_to_calib(self, y: np.ndarray) -> np.ndarray:
-        y = np.concatenate(y, axis=0)
-        return np.array(y)
+    def pred_to_calib(self, preds: np.ndarray) -> np.ndarray:
+        preds = np.concatenate(preds, axis=0)
+        return np.array(preds)
 
     def gt_to_calib(self, y: np.ndarray) -> np.ndarray:
         task_classes = self.n_classes_per_task
@@ -90,7 +97,7 @@ class HighToLowLabelConnector(LabelSpaceConnector):
     def __post_init__(self) -> None:
         super().__init__(self.n_classes_per_task)
 
-    def pred_to_calib(self, y: np.ndarray) -> np.ndarray:
+    def pred_to_calib(self, preds: np.ndarray) -> np.ndarray:
         # TODO: Implement
         pass
 
@@ -105,6 +112,6 @@ class LowToHighLabelConnector(LabelSpaceConnector):
     def __post_init__(self) -> None:
         super().__init__(self.n_classes_per_task)
 
-    def pred_to_calib(self, y: np.ndarray) -> np.ndarray:
+    def pred_to_calib(self, preds: np.ndarray) -> np.ndarray:
         # TODO: Implement
         pass

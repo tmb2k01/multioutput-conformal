@@ -28,6 +28,8 @@ class MultiOutputDataModule(pl.LightningDataModule):
         self.batch_size = batch_size
         self.num_workers = num_workers
 
+        self.setup()
+
     def setup(self, stage=None) -> None:
         """
         Sets up the dataset splits for training, validation, testing, and calibration.

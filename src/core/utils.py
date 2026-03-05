@@ -3,7 +3,14 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
+import torch
 
+def _to_numpy(x):
+    if isinstance(x, np.ndarray):
+        return x
+    if torch.is_tensor(x):
+        return x.detach().cpu().numpy()
+    return np.asarray(x)
 
 def expand_path(p: str | Path) -> Path:
     return Path(os.path.expanduser(os.path.expandvars(str(p))))
@@ -52,4 +59,4 @@ def convert_multitask_preds(calib_preds):
         for t, task_output in enumerate(batch):
             task_outputs[t].append(task_output)
 
-    return [np.concatenate(task, axis=0) for task in task_outputs]
+    return [np.concatenate([_to_numpy(b) for b in task], axis=0) for task in task_outputs]

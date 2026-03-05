@@ -151,9 +151,8 @@ class BaseCalibrator(ABC):
             ),
         )
 
-
         payload = (
-            {"q_hat": float(cast(int | float, q))} if np.isscalar(q) else q
+            {"q_hats": q} if np.isscalar(q) or isinstance(q, (list)) else q
         )
 
         bundle = ThresholdBundle(
@@ -207,7 +206,7 @@ class BaseCalibrator(ABC):
 class HighLevelCalibrator(BaseCalibrator):
     calibrationFnKey: str
     nonconformityFnKey: str
-    load_thresholds: bool = False
+    load_on_init: bool = False
     alpha: float = 0.05
     artifacts_dir: str = "./artifacts"
 
@@ -221,13 +220,12 @@ class HighLevelCalibrator(BaseCalibrator):
             calibrationFn=calibrationFn,
             calibrationFnKey=self.calibrationFnKey,
             nonconformityFnKey=self.nonconformityFnKey,
-            load_on_init=self.load_thresholds,
+            alpha=self.alpha,
+            load_on_init=self.load_on_init,
             artifacts_dir=self.artifacts_dir,
         )
 
-    @property
-    def level(self) -> Level:
-        return "high"
+    level = "high"
 
     # TODO: Fix
     def predict(self, batch_outputs: Any) -> list[np.ndarray] | list[list[np.ndarray]]:
@@ -276,7 +274,7 @@ class HighLevelCalibrator(BaseCalibrator):
 class LowLevelCalibrator(BaseCalibrator):
     calibrationFnKey: str
     nonconformityFnKey: str
-    load_thresholds: bool = False
+    load_on_init: bool = False
     alpha: float = 0.05
     artifacts_dir: str = "./artifacts"
 
@@ -289,13 +287,11 @@ class LowLevelCalibrator(BaseCalibrator):
             calibrationFnKey=self.calibrationFnKey,
             nonconformityFnKey=self.nonconformityFnKey,
             alpha=self.alpha,
-            load_on_init=self.load_thresholds,
+            load_on_init=self.load_on_init,
             artifacts_dir=self.artifacts_dir,
         )
 
-    @property
-    def level(self) -> Level:
-        return "low"
+    level = "low"
 
     # TODO: Fix
     def predict(self, batch_outputs: Any) -> list[np.ndarray] | list[list[np.ndarray]]:
