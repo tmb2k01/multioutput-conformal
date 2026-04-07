@@ -5,12 +5,20 @@ from typing import Any
 import numpy as np
 import torch
 
-def _to_numpy(x):
+def to_numpy(x):
     if isinstance(x, np.ndarray):
         return x
     if torch.is_tensor(x):
         return x.detach().cpu().numpy()
     return np.asarray(x)
+
+def to_cpu(x):
+    if torch.is_tensor(x):
+        return x.cpu()
+    if isinstance(x, list):
+        if all(torch.is_tensor(item) for item in x):
+            return [item.cpu() for item in x]
+    return x
 
 def expand_path(p: str | Path) -> Path:
     return Path(os.path.expanduser(os.path.expandvars(str(p))))
@@ -59,4 +67,4 @@ def convert_multitask_preds(calib_preds):
         for t, task_output in enumerate(batch):
             task_outputs[t].append(task_output)
 
-    return [np.concatenate([_to_numpy(b) for b in task], axis=0) for task in task_outputs]
+    return [np.concatenate([to_numpy(b) for b in task], axis=0) for task in task_outputs]

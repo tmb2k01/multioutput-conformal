@@ -134,7 +134,7 @@ class ConformalPredictor:
             cp_type=cp_type,
         )
 
-# -----------------------------
+    # -----------------------------
     # sklearn-like interface
     # -----------------------------
     def fit(

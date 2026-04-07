@@ -145,15 +145,11 @@ class BaseCalibrator(ABC):
             labels,
             alpha,
             n_clusters=(
-                n_clusters
-                if self.calibrationFn in CLUSTER_FN_DIC.values()
-                else None
+                n_clusters if self.calibrationFn in CLUSTER_FN_DIC.values() else None
             ),
         )
 
-        payload = (
-            {"q_hats": q} if np.isscalar(q) or isinstance(q, (list)) else q
-        )
+        payload = {"q_hats": q}
 
         bundle = ThresholdBundle(
             level=self.level,
@@ -166,14 +162,40 @@ class BaseCalibrator(ABC):
         self._save_thresholds(bundle)
         return bundle
 
-    @abstractmethod
     def predict(self, batch_outputs: Any) -> list[np.ndarray] | list[list[np.ndarray]]:
-        raise NotImplementedError
+        if self.thresholds is None:
+            raise CalibratorStateError(
+                "Thresholds are not available. Call fit(...) or load_thresholds(...)."
+            )
+
+        scores = self.get_prediction_scores(batch_outputs)
+        payload = self.thresholds.payload
+        q_hats = payload["q_hats"]
+
+        if not isinstance(q_hats, dict):
+            if np.isscalar(q_hats):
+                q_hats = float(q_hats)
+            elif not np.isscalar(q_hats[0]):
+                q_hats = (
+                    float(q_hats)
+                    if np.isscalar(q_hats)
+                    else [np.asarray(t_qhats).reshape(-1) for t_qhats in payload["q_hats"]]
+                )
+            return standard_prediction(scores, q_hats)  # broadcast (B,) -> (B,C)
+
+        # Clustered thresholds (clustered CCP)
+        return clustered_prediction(scores, q_hats)
 
     @abstractmethod
     def compute_gt_nonconformity(
         self, outputs: list[np.ndarray] | np.ndarray, labels: np.ndarray
     ) -> dict[str, np.ndarray | list[np.ndarray]]:
+        raise NotImplementedError
+
+    @abstractmethod
+    def get_prediction_scores(
+        self, batch_outputs: Any
+    ) -> list[np.ndarray] | np.ndarray:
         raise NotImplementedError
 
     def load_thresholds(self, alpha: float) -> ThresholdBundle:
@@ -227,37 +249,9 @@ class HighLevelCalibrator(BaseCalibrator):
 
     level = "high"
 
-    # TODO: Fix
-    def predict(self, batch_outputs: Any) -> list[np.ndarray] | list[list[np.ndarray]]:
-        if self.thresholds is None:
-            raise CalibratorStateError(
-                "Thresholds are not available. Call fit(...) or load_thresholds(...)."
-            )
-
-        scores = np.asarray(self.nonconformityFn(batch_outputs))
-        payload = self.thresholds.payload
-
-        # Standard thresholds (SCP / CCP without clusters)
-        if "q_hat" in payload:
-            q_hat = float(payload["q_hat"])
-            return standard_prediction(
-                scores, q_hat
-            )  # -> list[np.ndarray] (per-sample indices)
-
-        if "q_hats" in payload:
-            q_hats = np.asarray(payload["q_hats"], dtype=float).reshape(-1)
-            if q_hats.shape[0] != scores.shape[0]:
-                raise CalibratorDataError(
-                    f"Threshold vector length mismatch. Expected {scores.shape[0]}, got {q_hats.shape[0]}."
-                )
-            if not np.all(np.isfinite(q_hats)):
-                raise CalibratorDataError(
-                    "q_hats contains non-finite values (NaN/inf)."
-                )
-            return standard_prediction(scores, q_hats)  # broadcast (B,) -> (B,C)
-
-        # Clustered thresholds (clustered CCP)
-        return clustered_prediction(scores, payload)
+    def get_prediction_scores(self, batch_outputs):
+        scores = self.nonconformityFn(batch_outputs)
+        return [np.asarray(task_scores) for task_scores in scores]
 
     def compute_gt_nonconformity(
         self, outputs: list[np.ndarray], labels: np.ndarray
@@ -293,36 +287,8 @@ class LowLevelCalibrator(BaseCalibrator):
 
     level = "low"
 
-    # TODO: Fix
-    def predict(self, batch_outputs: Any) -> list[np.ndarray] | list[list[np.ndarray]]:
-        if self.thresholds is None:
-            raise CalibratorStateError(
-                "Thresholds are not available. Call fit(...) or load_thresholds(...)."
-            )
-
-        scores = np.asarray(self.nonconformityFn(batch_outputs))
-
-        payload = self.thresholds.payload
-
-        # Standard thresholds (SCP / CCP without clusters)
-        if "q_hat" in payload:
-            q_hat = float(payload["q_hat"])
-            return standard_prediction(scores, q_hat)
-
-        if "q_hats" in payload:
-            q_hats = np.asarray(payload["q_hats"], dtype=float).reshape(-1)
-            if q_hats.shape[0] != scores.shape[0]:
-                raise CalibratorDataError(
-                    f"Threshold vector length mismatch. Expected {scores.shape[0]}, got {q_hats.shape[0]}."
-                )
-            if not np.all(np.isfinite(q_hats)):
-                raise CalibratorDataError(
-                    "q_hats contains non-finite values (NaN/inf)."
-                )
-            return standard_prediction(scores, q_hats)
-
-        # Clustered thresholds (clustered CCP)
-        return clustered_prediction(scores, payload)
+    def get_prediction_scores(self, batch_outputs):
+        return np.asarray(self.nonconformityFn(batch_outputs))
 
     def compute_gt_nonconformity(
         self, outputs: np.ndarray, labels: np.ndarray

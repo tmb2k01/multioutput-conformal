@@ -1,7 +1,7 @@
 
 
-from core.calibrators import HighLevelCalibrator
-from core.models import HighLevelModel
+from core.calibrators import HighLevelCalibrator, LowLevelCalibrator
+from core.models import HighLevelModel, LowLevelModel
 from core.predictor import ConformalPredictor
 from data.datamodule import MultiOutputDataModule
 
@@ -19,17 +19,17 @@ def main() -> None:
         num_workers=num_workers,
     )
     predictor = ConformalPredictor.build(
-        model_cls=HighLevelModel,
+        model_cls=LowLevelModel,
         calibrator_cls=HighLevelCalibrator,
         task_num_classes=[2, 5],
-        cp_type="ccp_class_thresholds")
+        cp_type="ccp_global_cluster_thresholds")
     predictor.fit(data_module=dm, max_epochs=1, train_model=False)
 
     predictor = ConformalPredictor.load(
-        model_cls=HighLevelModel,
+        model_cls=LowLevelModel,
         calibrator_cls=HighLevelCalibrator,
         task_num_classes=task_num_classes,
-        cp_type="ccp_class_thresholds")
+        cp_type="ccp_global_cluster_thresholds")
     
     for X, y in dm.test_dataloader():
         pred_set = predictor.predict(X)
