@@ -32,7 +32,7 @@ class BaseModel(pl.LightningModule, ABC):
     # ---- identity / metadata ----
     level: str
 
-    def __init__(self, task_num_classes: Sequence[int], learning_rate: float = 1e-3) -> None:
+    def __init__(self, task_num_classes: Sequence[int], learning_rate: float = 1e-3,) -> None:
         super().__init__()
         self.save_hyperparameters(ignore=["feature_extractor"])
         self.task_num_classes: list[int] = list(task_num_classes)

@@ -36,9 +36,9 @@ rm data/UTKFace_dataset_1.tar.gz data/UTKFace_dataset_2.tar.gz data/UTKFace_data
 
 echo "Preprocessing datasets..."
 if command -v python &>/dev/null; then
-    python scripts/prepare-sgvehicle-dataset.py
-    python scripts/prepare-utkface-dataset.py
+    python scripts/prepare-sgvehicle-dataset.py --experiment
+    python scripts/prepare-utkface-dataset.py --experiment
 else
-    python3 scripts/prepare-sgvehicle-dataset.py
-    python3 scripts/prepare-utkface-dataset.py
+    python3 scripts/prepare-sgvehicle-dataset.py --experiment
+    python3 scripts/prepare-utkface-dataset.py --experiment
 fi

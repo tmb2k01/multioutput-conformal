@@ -145,13 +145,19 @@ class ConformalPredictor:
         calibration_clusters: str | int = "auto",
         max_epochs: int = 30,
         train_model: bool = True,
+        calibrate_model: bool = True,
     ) -> ConformalPredictor:
         """Train (optional) and calibrate; mirrors train.py."""
-        if train_model:
+        if train_model and calibrate_model:
             self._train_and_calibrate(
                 data_module=data_module,
                 alpha=alpha,
                 calibration_clusters=calibration_clusters,
+                max_epochs=max_epochs,
+            )
+        elif train_model:
+            self._train(
+                data_module=data_module,
                 max_epochs=max_epochs,
             )
         else:
@@ -195,6 +201,47 @@ class ConformalPredictor:
 
         self.calibrator.fit(preds, labels, alpha=alpha, n_clusters=calibration_clusters)
     
+    def _train(
+        self,
+        *,
+        data_module: MultiOutputDataModule,
+        max_epochs: int,
+    ) -> tuple[Path, Path]:
+        """Train then calibrate; mirrors train.py train_model()."""
+        self.artifacts_dir = expand_path(self.artifacts_dir)
+
+        models_dir = self.artifacts_dir / "models"
+        models_dir.mkdir(parents=True, exist_ok=True)
+
+        ckpt_cb = pl.callbacks.ModelCheckpoint(
+            monitor="val_loss",
+            dirpath=str(models_dir),
+            filename=f"{self.model.level}-model",
+            save_top_k=1,
+            save_weights_only=False,
+            mode="min",
+        )
+        es_cb = pl.callbacks.EarlyStopping(
+            monitor="val_loss", patience=5, verbose=True, mode="min"
+        )
+
+        trainer = pl.Trainer(
+            max_epochs=max_epochs,
+            callbacks=[es_cb, ckpt_cb],
+            logger=True,
+        )
+
+        trainer.fit(self.model, data_module)
+
+        if not ckpt_cb.best_model_path:
+            raise RuntimeError("No best_model_path produced by ModelCheckpoint.")
+
+        self.model_ckpt_path = Path(ckpt_cb.best_model_path)
+        model_cls = self.model.__class__
+        self.model = model_cls.load_from_checkpoint(
+            ckpt_cb.best_model_path, task_num_classes=self.task_num_classes
+        )
+        self.model.eval()
 
     def _train_and_calibrate(
         self,

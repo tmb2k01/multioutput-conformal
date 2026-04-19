@@ -2,6 +2,7 @@ import os
 import shutil
 
 from sklearn.model_selection import train_test_split
+import argparse
 
 data_dir = "data/UTKFace"
 part_dirs = [os.path.join(data_dir, part) for part in ["part1", "part2", "part3"]]
@@ -32,7 +33,7 @@ def save_split_data(X_split, y_split, split_name) -> None:
             f.write(f"{labels[0]} {labels[1]}")
 
 
-def prepare_dataset() -> None:
+def prepare_dataset(experiment: bool) -> None:
     file_paths = list(os.listdir(dataset_dir))
     sex_labels = []
     race_labels = []
@@ -66,26 +67,48 @@ def prepare_dataset() -> None:
     X_val, X_test_cal, y_val, y_test_cal = train_test_split(
         X_temp, y_temp, test_size=0.75, random_state=42
     )
-    X_test, X_calib, y_test, y_calib = train_test_split(
-        X_test_cal, y_test_cal, test_size=0.5, random_state=42
-    )
 
-    for split in ["train", "valid", "test", "calib"]:
+    for split in ["train", "valid"]:
         os.makedirs(os.path.join(data_dir, split, "images"), exist_ok=True)
         os.makedirs(os.path.join(data_dir, split, "labels"), exist_ok=True)
 
     save_split_data(X_train, y_train, "train")
     save_split_data(X_val, y_val, "valid")
-    save_split_data(X_test, y_test, "test")
-    save_split_data(X_calib, y_calib, "calib")
+
+    if experiment:
+        for i in range(5):
+            X_test, X_calib, y_test, y_calib = train_test_split(
+                X_test_cal, y_test_cal, test_size=0.5, random_state=i
+            )
+
+            for split in [f"test_{i}", f"calib_{i}"]:
+                os.makedirs(os.path.join(data_dir, split, "images"), exist_ok=True)
+                os.makedirs(os.path.join(data_dir, split, "labels"), exist_ok=True)
+            save_split_data(X_test, y_test, f"test_{i}")
+            save_split_data(X_calib, y_calib, f"calib_{i}")
+
+    else:
+        X_test, X_calib, y_test, y_calib = train_test_split(
+            X_test_cal, y_test_cal, test_size=0.5, random_state=42
+        )
+        for split in [f"test", f"calib"]:
+            os.makedirs(os.path.join(data_dir, split, "images"), exist_ok=True)
+            os.makedirs(os.path.join(data_dir, split, "labels"), exist_ok=True)
+        save_split_data(X_test, y_test, "test")
+        save_split_data(X_calib, y_calib, "calib")
+
 
     shutil.rmtree(dataset_dir)
 
 
-def main() -> None:
+def main(args) -> None:
+    experiment = args.experiment
     merge_parts()
-    prepare_dataset()
+    prepare_dataset(experiment)
 
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--experiment", action="store_true")
+    args = parser.parse_args()
+    main(args)

@@ -1,5 +1,3 @@
-
-
 from core.calibrators import HighLevelCalibrator, LowLevelCalibrator
 from core.models import HighLevelModel, LowLevelModel
 from core.predictor import ConformalPredictor
@@ -7,35 +5,26 @@ from data.datamodule import MultiOutputDataModule
 
 
 def main() -> None:
-    data_root = "./data/UTKFace"
+    artifact_root = "./artifacts/SGVehicle/ll_model"
+    data_root = "./data/SGVehicle"
     batch_size: int = 64
     num_workers: int = 8
-    task_num_classes = [2, 5]
+    task_num_classes = [12, 11]
 
     dm = MultiOutputDataModule(
         root_dir=str(data_root),
         task_num_classes=task_num_classes,
         batch_size=batch_size,
         num_workers=num_workers,
+        iter='0'
     )
     predictor = ConformalPredictor.build(
         model_cls=LowLevelModel,
-        calibrator_cls=HighLevelCalibrator,
-        task_num_classes=[2, 5],
-        cp_type="ccp_global_cluster_thresholds")
-    predictor.fit(data_module=dm, max_epochs=1, train_model=False)
-
-    predictor = ConformalPredictor.load(
-        model_cls=LowLevelModel,
-        calibrator_cls=HighLevelCalibrator,
+        calibrator_cls=LowLevelCalibrator,
         task_num_classes=task_num_classes,
-        cp_type="ccp_global_cluster_thresholds")
-    
-    for X, y in dm.test_dataloader():
-        pred_set = predictor.predict(X)
-        print(pred_set)
-        break
-
+        cp_type="scp_global_threshold",
+        artifacts_dir=artifact_root)
+    predictor.fit(data_module=dm, train_model=True, calibrate_model=False)
 
 if __name__ == "__main__":
     main()

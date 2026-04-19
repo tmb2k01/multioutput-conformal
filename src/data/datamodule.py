@@ -21,14 +21,14 @@ class MultiOutputDataModule(pl.LightningDataModule):
         num_workers (int): Number of subprocesses for data loading.
     """
 
-    def __init__(self, root_dir, task_num_classes, batch_size=32, num_workers=4) -> None:
+    def __init__(self, root_dir, task_num_classes, batch_size=32, num_workers=4, iter=None) -> None:
         super().__init__()
         self.root_dir = root_dir
         self.task_num_classes = task_num_classes
         self.batch_size = batch_size
         self.num_workers = num_workers
+        self.iter = iter
 
-        self.setup()
 
     def setup(self, stage=None) -> None:
         """
@@ -49,13 +49,14 @@ class MultiOutputDataModule(pl.LightningDataModule):
             task_num_classes=self.task_num_classes,
             transform=Resize((256, 256)),
         )
+
         self.test_dataset = MultiOutputDataset(
-            root_dir=os.path.join(self.root_dir, "test"),
+            root_dir=os.path.join(self.root_dir, f"test{f'_{self.iter}'if self.iter else ''}"),
             task_num_classes=self.task_num_classes,
             transform=Resize((256, 256)),
         )
         self.calib_dataset = MultiOutputDataset(
-            root_dir=os.path.join(self.root_dir, "calib"),
+            root_dir=os.path.join(self.root_dir, f"calib{f'_{self.iter}'if self.iter else ''}"),
             task_num_classes=self.task_num_classes,
             transform=Resize((256, 256)),
         )

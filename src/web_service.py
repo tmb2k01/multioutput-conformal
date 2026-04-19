@@ -11,6 +11,7 @@ import torchvision.transforms as T
 from calibration.nonconformity_functions import NONCONFORMITY_FN_DIC
 from core.models import HighLevelModel, LowLevelModel
 
+#TODO: refactor to use the new structure of code
 
 # ---------- helpers ----------
 def _expand_path(p: str) -> str:

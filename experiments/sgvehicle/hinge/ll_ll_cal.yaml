@@ -1,0 +1,30 @@
+version: 1
+
+defaults:
+    data_module:
+      data_root: "./data/SGVehicle"
+      batch_size: 64
+      num_workers: 8
+      max_iter: 5
+      task_num_classes: [12, 11]
+    predictor:
+      artifact_root: "./artifacts/SGVehicle/ll_model"
+      model_cls: "LowLevelModel"
+      calibrator_cls: "LowLevelCalibrator"
+      nonconformity_key: "hinge"
+      train_model: false
+      calibrate_model: true
+
+
+experiments:
+  - name: "ll_llcal_scp_global"
+    predictor:
+      cp_type: "scp_global_threshold"
+
+  - name: "ll_llcal_ccp_class"
+    predictor:
+      cp_type: "ccp_class_thresholds"
+
+  - name: "ll_llcal_ccp_global_cluster"
+    predictor:
+      cp_type: "ccp_global_cluster_thresholds"
