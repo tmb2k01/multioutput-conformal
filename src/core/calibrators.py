@@ -56,7 +56,7 @@ def _round_alpha(alpha: float) -> float:
         raise CalibratorConfigError(f"alpha must be a finite float. Got {alpha!r}.")
     if not (0.0 < float(alpha) < 1.0):
         raise CalibratorConfigError(f"alpha must be in (0, 1). Got {alpha!r}.")
-    rounded = round(float(alpha), 4)
+    rounded = round(float(alpha), 2)
     if abs(float(alpha) - rounded) > 1e-4:
         # keep as warning, but not an exception
         print(f"Warning: alpha {alpha} rounded to {rounded}")

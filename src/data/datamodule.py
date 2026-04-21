@@ -21,22 +21,14 @@ class MultiOutputDataModule(pl.LightningDataModule):
         num_workers (int): Number of subprocesses for data loading.
     """
 
-    def __init__(self, root_dir, task_num_classes, batch_size=32, num_workers=4, iter=None) -> None:
+    def __init__(self, root_dir, task_num_classes, batch_size=32, num_workers=4, split_idx=None) -> None:
         super().__init__()
         self.root_dir = root_dir
         self.task_num_classes = task_num_classes
         self.batch_size = batch_size
         self.num_workers = num_workers
-        self.iter = iter
+        self.iter = split_idx
 
-
-    def setup(self, stage=None) -> None:
-        """
-        Sets up the dataset splits for training, validation, testing, and calibration.
-
-        Args:
-            stage (str, optional): Can be used to specify setup stage. Not used here.
-        """
         self.train_dataset = MultiOutputDataset(
             root_dir=os.path.join(self.root_dir, "train"),
             task_num_classes=self.task_num_classes,
@@ -51,12 +43,12 @@ class MultiOutputDataModule(pl.LightningDataModule):
         )
 
         self.test_dataset = MultiOutputDataset(
-            root_dir=os.path.join(self.root_dir, f"test{f'_{self.iter}'if self.iter else ''}"),
+            root_dir=os.path.join(self.root_dir, f"test{f'_{self.iter}'if self.iter is not None else ''}"),
             task_num_classes=self.task_num_classes,
             transform=Resize((256, 256)),
         )
         self.calib_dataset = MultiOutputDataset(
-            root_dir=os.path.join(self.root_dir, f"calib{f'_{self.iter}'if self.iter else ''}"),
+            root_dir=os.path.join(self.root_dir, f"calib{f'_{self.iter}'if self.iter is not None else ''}"),
             task_num_classes=self.task_num_classes,
             transform=Resize((256, 256)),
         )

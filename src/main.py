@@ -1,30 +1,25 @@
-from core.calibrators import HighLevelCalibrator, LowLevelCalibrator
-from core.models import HighLevelModel, LowLevelModel
-from core.predictor import ConformalPredictor
+from experiment import run_experiments
 from data.datamodule import MultiOutputDataModule
-
+from core.predictor import ConformalPredictor
+from core.models import HighLevelModel, LowLevelModel
+from core.calibrators import HighLevelCalibrator, LowLevelCalibrator
 
 def main() -> None:
-    artifact_root = "./artifacts/SGVehicle/ll_model"
-    data_root = "./data/SGVehicle"
-    batch_size: int = 64
-    num_workers: int = 8
-    task_num_classes = [12, 11]
+    # dm = MultiOutputDataModule(
+    #     root_dir="./data/SGVehicle",
+    #     task_num_classes=[12, 11],
+    #     split_idx = 0
+    # )
 
-    dm = MultiOutputDataModule(
-        root_dir=str(data_root),
-        task_num_classes=task_num_classes,
-        batch_size=batch_size,
-        num_workers=num_workers,
-        iter='0'
-    )
-    predictor = ConformalPredictor.build(
-        model_cls=LowLevelModel,
-        calibrator_cls=LowLevelCalibrator,
-        task_num_classes=task_num_classes,
-        cp_type="scp_global_threshold",
-        artifacts_dir=artifact_root)
-    predictor.fit(data_module=dm, train_model=True, calibrate_model=False)
+    # predictor = ConformalPredictor.build(
+    #     model_cls=HighLevelModel,
+    #     calibrator_cls=HighLevelCalibrator,
+    #     task_num_classes=[12, 11],
+    # )
+
+    # predictor.fit(data_module=dm, calibrate_model = False)
+
+    run_experiments('/home/marcs/projects/masters-thesis/experiments/sgvehicle/hinge/hl_hl_cal.yaml')
 
 if __name__ == "__main__":
     main()

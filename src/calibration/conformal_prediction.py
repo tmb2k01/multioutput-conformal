@@ -98,7 +98,7 @@ def _extract_qhat_and_clusters(data: dict):
         q_hat_shared = data["cluster_qhats"]
         q_hat = []
         clusters = []
-        if isinstance(data["class_to_cluster_mapping"], list):
+        if isinstance(data["class_to_cluster_mapping"], np.ndarray):
             clusters = data["class_to_cluster_mapping"]
             q_hat = q_hat_shared
         else:
@@ -137,10 +137,10 @@ def clustered_prediction(
     """
     if isinstance(nonconformity_scores, np.ndarray):
         q_hat, clusters = _extract_qhat_and_clusters(q_hat_data)
-        assert isinstance(q_hat, list), "Expected q_hat to be a list for single-task."
+        assert isinstance(q_hat, np.ndarray), "Expected q_hat to be a np.ndarray for single-task."
         assert isinstance(
-            clusters, list
-        ), "Expected clusters to be a list for single-task."
+            clusters, np.ndarray
+        ), "Expected clusters to be a np.ndarray for single-task."
         assert nonconformity_scores.shape[1] == len(
             clusters
         ), f"Mismatch between number of classes and cluster assignments. Scores length: {len(nonconformity_scores)}, Clusters length: {len(clusters)}"

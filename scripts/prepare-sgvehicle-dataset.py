@@ -9,7 +9,7 @@ dataset_dir = os.path.join(data_dir, "Gen_img")
 
 
 def save_split_data(X_split, y_split, split_name) -> None:
-    for filename, labels in zip(X_split, y_split, strict=False):
+    for filename, labels in zip(X_split, y_split, strict=True):
         src_path = os.path.join(dataset_dir, filename)
         dest_path = os.path.join(data_dir, split_name, "images", filename)
         os.makedirs(os.path.dirname(dest_path), exist_ok=True)
@@ -40,10 +40,10 @@ def prepare_dataset(experiment: bool) -> None:
     X = filtered_files
     y = list(zip(color_labels, type_labels, strict=False))
     X_train, X_temp, y_train, y_temp = train_test_split(
-        X, y, test_size=0.4, random_state=42
+        X, y, test_size=0.4, random_state=42, stratify=[f"{c}_{t}" for c, t in y]
     )  # 60% train, 40% temp
     X_val, X_test_cal, y_val, y_test_cal = train_test_split(
-        X_temp, y_temp, test_size=0.75, random_state=42
+        X_temp, y_temp, test_size=0.75, random_state=42, stratify=[f"{c}_{t}" for c, t in y_temp]
     )  # 10% val, 30% test+calib
 
     for split in ["train", "valid"]:
@@ -56,7 +56,7 @@ def prepare_dataset(experiment: bool) -> None:
     if experiment:
         for i in range(5):
             X_test, X_calib, y_test, y_calib = train_test_split(
-                X_test_cal, y_test_cal, test_size=0.5, random_state=i
+                X_test_cal, y_test_cal, test_size=0.5, random_state=i, stratify=[f"{c}_{t}" for c, t in y_test_cal]
             )
 
             for split in [f"test_{i}", f"calib_{i}"]:
@@ -67,7 +67,7 @@ def prepare_dataset(experiment: bool) -> None:
 
     else:
         X_test, X_calib, y_test, y_calib = train_test_split(
-            X_test_cal, y_test_cal, test_size=0.5, random_state=42
+            X_test_cal, y_test_cal, test_size=0.5, random_state=42, stratify=[f"{c}_{t}" for c, t in y_test_cal]
         )
         for split in [f"test", f"calib"]:
             os.makedirs(os.path.join(data_dir, split, "images"), exist_ok=True)

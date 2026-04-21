@@ -229,11 +229,11 @@ class HighLevelModel(BaseModel):
     def forward_logits(self, x: torch.Tensor) -> list[torch.Tensor]:
         feats = self.feature_extractor(x)
         feats = torch.flatten(feats, 1)
-        logits = [head(feats) for head in self.classifiers]
-        return [torch.softmax(l, dim=1) for l in logits]
+        return [head(feats) for head in self.classifiers]
 
     def _predict_proba_for_batch(self, x: torch.Tensor) -> list[torch.Tensor]:
-       return self.forward_logits(x)
+        logits = self.forward_logits(x)
+        return [torch.softmax(l, dim=1) for l in logits]
 
     def _shared_step(self, batch: tuple[torch.Tensor, torch.Tensor], stage: str, accuracy: bool) -> torch.Tensor:
         x, targets = batch  # targets: (B,T)
@@ -314,11 +314,10 @@ class LowLevelModel(BaseModel):
     def forward_logits(self, x: torch.Tensor) -> torch.Tensor:
         feats = self.feature_extractor(x)
         feats = torch.flatten(feats, 1)
-        logits = self.classifier(feats)
-        return torch.softmax(logits, dim=1)
+        return self.classifier(feats)
 
     def _predict_proba_for_batch(self, x: torch.Tensor) -> torch.Tensor:
-        return self.forward_logits(x)
+        return torch.softmax(self.forward_logits(x), dim=1)
 
     def encode_targets(self, targets: torch.Tensor | Sequence[torch.Tensor]) -> torch.Tensor:
         """

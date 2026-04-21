@@ -424,7 +424,7 @@ CALIBRATION_FN_HIGH_DIC: dict[str, Callable[..., float]] = {
 CALIBRATION_FN_LOW_DIC: dict[str, Callable[..., float]] = {
     "scp_global_threshold": compute_qhat_scp_global,
     "ccp_class_thresholds": compute_qhat_ccp_class,
-    "ccp_global_clusters": compute_qhat_ccp_global_cluster,
+    "ccp_global_cluster_thresholds": compute_qhat_ccp_global_cluster,
 }
 
 CLUSTER_FN_DIC: dict[str, Callable[..., dict]] = {

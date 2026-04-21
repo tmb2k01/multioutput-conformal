@@ -110,10 +110,10 @@ def get_threshold_for_low_level(cp_type: str, thresholds_data: dict, idx: int) -
     if cp_type == "ccp_class":
         return f"{thresholds_data['ccp_class_thresholds'][idx]:.5f}"
     if cp_type == "ccp_global_cluster":
-        cluster_id = thresholds_data["ccp_global_clusters"]["class_to_cluster_mapping"][
+        cluster_id = thresholds_data["ccp_global_cluster_thresholds"]["class_to_cluster_mapping"][
             idx
         ]
-        qhat = thresholds_data["ccp_global_clusters"]["cluster_qhats"][cluster_id]
+        qhat = thresholds_data["ccp_global_cluster_thresholds"]["cluster_qhats"][cluster_id]
         return f"{qhat:.5f}"
     return "-"
 

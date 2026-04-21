@@ -167,14 +167,14 @@ def compute_classwise_coverage(
     return np.array(coverages)
 
 
-def compute_overall_covgap(
+def compute_taskwise_covgap(
     predictions: list[list[np.ndarray]],
     labels: list[np.ndarray],
     task_num_classes: list[int],
     alpha: float,
-) -> float:
+) -> list[float]:
     """
-    Computes average class coverage gap (CovGap) across tasks.
+    Computes classes coverage gaps (CovGap).
 
     Args:
         predictions (List[List[np.ndarray]]): List of tasks, each containing prediction sets per sample.
@@ -183,15 +183,18 @@ def compute_overall_covgap(
         alpha (float): Significance level.
 
     Returns:
-        float: CovGap value.
+        float: CovGap values.
     """
-    all_coverages = []
+    taskwise_coverages = []
+
     for preds, lbls, C in zip(predictions, labels, task_num_classes, strict=False):
         class_cov = compute_classwise_coverage(preds, lbls, C)
-        all_coverages.extend(class_cov)
+        class_cov = np.asarray(class_cov)
 
-    all_coverages = np.array(all_coverages)
-    return 100 * np.mean(np.abs(all_coverages - (1 - alpha)))
+        cov_gap = 100 * np.mean(np.abs(class_cov - (1 - alpha)))
+        taskwise_coverages.append(cov_gap)
+
+    return taskwise_coverages
 
 
 def compute_covgap(predictions, labels, num_classes, alpha):
