@@ -7,7 +7,7 @@ from dataclasses import dataclass
 import numpy as np
 import torch
 
-from core.utils import convert_multitask_preds, to_cpu, to_numpy
+from core.utils import convert_multitask_preds, to_cpu
 
 
 class LabelSpaceConnector(ABC):
@@ -40,7 +40,8 @@ class LabelSpaceConnector(ABC):
     @abstractmethod
     def gt_to_calib(self, y: np.ndarray) -> np.ndarray:
         """
-        Convert ground truth labels to the representation used by the calibrator/model at that level.
+        Convert ground truth labels to the representation used by the 
+        calibrator/model at that level.
         """
         raise NotImplementedError
 

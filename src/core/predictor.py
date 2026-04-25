@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -7,6 +8,7 @@ from typing import Any
 import numpy as np
 import pytorch_lightning as pl
 import torch
+from pytorch_lightning.loggers import WandbLogger
 
 from calibration.nonconformity_functions import NONCONFORMITY_FN_DIC
 from core.calibrators import BaseCalibrator
@@ -21,15 +23,12 @@ from core.types import NonconformityKey
 from core.utils import expand_path
 from data.datamodule import MultiOutputDataModule
 
-import os
-from pytorch_lightning.loggers import WandbLogger
-
 
 def get_optional_wandb_logger(
     project: str,
     run_name: str | None = None,
     save_dir: str = ".",
-):
+) -> WandbLogger | True:
     """
     Enable Weights & Biases only if a valid API key exists in .wandb_api_key.
 
@@ -151,7 +150,14 @@ class ConformalPredictor:
         """Load a previously saved model checkpoint and calibration thresholds."""
         artifacts_dir = expand_path(artifacts_dir)
         ckpt = artifacts_dir / "models" / f"{model_cls.level}-model.ckpt"
-        thr = artifacts_dir / "thresholds" / f"{calibrator_cls.level}" / f"{nonconformity_key}" / f"{cp_type}" / f"alpha_{alpha:.2f}.json"
+        thr = (
+            artifacts_dir
+            / "thresholds"
+            / f"{calibrator_cls.level}"
+            / f"{nonconformity_key}"
+            / f"{cp_type}"
+            / f"alpha_{alpha:.2f}.json"
+        )
 
         if not ckpt.is_file():
             raise FileNotFoundError(f"Model checkpoint not found at {ckpt}")
@@ -218,8 +224,11 @@ class ConformalPredictor:
         self.artifacts_dir = expand_path(self.artifacts_dir)
 
 
-    def _make_training_trainer(self, max_epochs: int) -> tuple[pl.Trainer, pl.callbacks.ModelCheckpoint]:
-        models_dir = self.artifacts_dir / "models"
+    def _make_training_trainer(
+        self, max_epochs: int
+    ) -> tuple[pl.Trainer, pl.callbacks.ModelCheckpoint]:
+        level_prefix = "hl" if self.model.level == "high" else "ll"
+        models_dir = self.artifacts_dir / f"{level_prefix}_model" / "models"
         models_dir.mkdir(parents=True, exist_ok=True)
 
         ckpt_cb = pl.callbacks.ModelCheckpoint(

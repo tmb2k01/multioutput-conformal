@@ -9,7 +9,7 @@ import numpy as np
 import pytorch_lightning as pl
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
+import torch.nn.functional as functional
 import torchmetrics
 import torchvision.models as models
 from sklearn.metrics import accuracy_score, confusion_matrix, f1_score
@@ -21,7 +21,8 @@ from sklearn.metrics import accuracy_score, confusion_matrix, f1_score
 class BaseModel(pl.LightningModule, ABC):
     """
     OOP refactor:
-      - BaseModel owns shared lifecycle (optimizer, common epoch-end evaluation, prediction step defaults)
+      - BaseModel owns shared lifecycle (optimizer, common epoch-end evaluation,
+        prediction step defaults)
       - Subclasses implement only what differs:
           * level
           * forward_logits (model logits)
@@ -39,9 +40,9 @@ class BaseModel(pl.LightningModule, ABC):
         self.learning_rate = float(learning_rate)
 
         # Shared loss
-        self.loss_fn = F.cross_entropy
+        self.loss_fn = functional.cross_entropy
 
-        # Collected at test time: list of (true_per_task: List[np.ndarray], pred_per_task: List[np.ndarray])
+        # Collected at test time
         self._test_step_outputs: list[tuple[list[np.ndarray], list[np.ndarray]]] = []
 
     
@@ -57,7 +58,8 @@ class BaseModel(pl.LightningModule, ABC):
 
     # ---- training/validation hooks ----
     @abstractmethod
-    def _shared_step(self, batch: tuple[torch.Tensor, torch.Tensor], stage: str, accuracy: bool) -> torch.Tensor:
+    def _shared_step(self, batch: tuple[torch.Tensor, torch.Tensor], stage: str, accuracy: bool
+                     ) -> torch.Tensor:
         """Compute loss (and log metrics if requested) for train/val."""
         raise NotImplementedError
 
@@ -76,10 +78,14 @@ class BaseModel(pl.LightningModule, ABC):
         raise NotImplementedError
 
     # ---- lightning steps ----
-    def training_step(self, batch: tuple[torch.Tensor, torch.Tensor], batch_idx: int) -> torch.Tensor:
+    def training_step(
+        self, batch: tuple[torch.Tensor, torch.Tensor], batch_idx: int
+    ) -> torch.Tensor:
         return self._shared_step(batch, stage="train", accuracy=False)
 
-    def validation_step(self, batch: tuple[torch.Tensor, torch.Tensor], batch_idx: int) -> torch.Tensor:
+    def validation_step(
+        self, batch: tuple[torch.Tensor, torch.Tensor], batch_idx: int
+    ) -> torch.Tensor:
         return self._shared_step(batch, stage="val", accuracy=True)
 
     def predict_step(
@@ -91,12 +97,19 @@ class BaseModel(pl.LightningModule, ABC):
         x, _ = batch
         return self._predict_proba_for_batch(x)
 
-    def test_step(self, batch: tuple[torch.Tensor, torch.Tensor], batch_idx: int) -> tuple[list[np.ndarray], list[np.ndarray]]:
+    def test_step(
+        self,
+        batch: tuple[torch.Tensor, torch.Tensor],
+        batch_idx: int,
+    ) -> tuple[list[np.ndarray], list[np.ndarray]]:
         x, targets = batch
 
         # targets expected as (B, T)
         if not isinstance(targets, torch.Tensor) or targets.ndim != 2:
-            raise ValueError(f"Expected targets of shape (B, T) tensor, got {type(targets)} with shape {getattr(targets, 'shape', None)}")
+            raise ValueError(
+                f"Expected targets of shape (B, T) tensor, got {type(targets)} "
+                f"with shape {getattr(targets, 'shape', None)}"
+            )
 
         # True labels per task (List[np.ndarray] of shape (B,))
         targets_t = targets.T  # (T,B)
@@ -129,7 +142,9 @@ class BaseModel(pl.LightningModule, ABC):
         all_true: list[np.ndarray] = []
         all_pred: list[np.ndarray] = []
 
-        for i, (y_true_batches, y_pred_batches) in enumerate(zip(true_by_task, pred_by_task, strict=False)):
+        for i, (y_true_batches, y_pred_batches) in enumerate(
+            zip(true_by_task, pred_by_task, strict=False)
+        ):
             y_true = np.concatenate(list(y_true_batches))
             y_pred = np.concatenate(list(y_pred_batches))
 
@@ -223,7 +238,12 @@ class HighLevelModel(BaseModel):
             )
 
         self.acc_fn = nn.ModuleList(
-            [torchmetrics.Accuracy(task="multiclass", num_classes=n, top_k=1) for n in self.task_num_classes]
+            [
+                torchmetrics.Accuracy(
+                    task="multiclass", num_classes=n, top_k=1
+                )
+                for n in self.task_num_classes
+            ]
         )
 
     def forward_logits(self, x: torch.Tensor) -> list[torch.Tensor]:
@@ -235,12 +255,20 @@ class HighLevelModel(BaseModel):
         logits = self.forward_logits(x)
         return [torch.softmax(l, dim=1) for l in logits]
 
-    def _shared_step(self, batch: tuple[torch.Tensor, torch.Tensor], stage: str, accuracy: bool) -> torch.Tensor:
+    def _shared_step(
+        self,
+        batch: tuple[torch.Tensor, torch.Tensor],
+        stage: str,
+        accuracy: bool,
+    ) -> torch.Tensor:
         x, targets = batch  # targets: (B,T)
         logits = self.forward_logits(x)  # list of (B, C_t)
 
         if not isinstance(targets, torch.Tensor) or targets.ndim != 2:
-            raise ValueError(f"Expected targets of shape (B, T), got {type(targets)} with shape {getattr(targets,'shape',None)}")
+            raise ValueError(
+                f"Expected targets of shape (B, T), got {type(targets)} "
+                f"with shape {getattr(targets, 'shape', None)}"
+            )
 
         targets_t = targets.T  # (T,B)
 
@@ -250,7 +278,9 @@ class HighLevelModel(BaseModel):
 
         if accuracy:
             per_task_acc = []
-            for i, (logit, t, metric) in enumerate(zip(logits, targets_t, self.acc_fn, strict=False)):
+            for i, (logit, t, metric) in enumerate(
+                zip(logits, targets_t, self.acc_fn, strict=False)
+            ):
                 acc = metric(logit, t)
                 self.log(f"{stage}_acc_task{i}", acc)
                 per_task_acc.append(acc)
@@ -309,7 +339,9 @@ class LowLevelModel(BaseModel):
             nn.Linear(512, self.num_classes),
         )
 
-        self.acc_fn = torchmetrics.Accuracy(task="multiclass", num_classes=self.num_classes, top_k=1)
+        self.acc_fn = torchmetrics.Accuracy(
+            task="multiclass", num_classes=self.num_classes, top_k=1
+        )
 
     def forward_logits(self, x: torch.Tensor) -> torch.Tensor:
         feats = self.feature_extractor(x)
@@ -355,7 +387,12 @@ class LowLevelModel(BaseModel):
         stacked = np.stack(labels[::-1], axis=-1)  # (N,T)
         return [stacked[:, i] for i in range(stacked.shape[1])]
 
-    def _shared_step(self, batch: tuple[torch.Tensor, torch.Tensor], stage: str, accuracy: bool) -> torch.Tensor:
+    def _shared_step(
+        self,
+        batch: tuple[torch.Tensor, torch.Tensor],
+        stage: str,
+        accuracy: bool,
+    ) -> torch.Tensor:
         x, targets = batch  # targets: (B,T)
         joint_target = self.encode_targets(targets)
         logits = self.forward_logits(x)

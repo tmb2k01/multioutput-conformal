@@ -1,23 +1,27 @@
 import os
 from pathlib import Path
-from typing import Any
 
 import numpy as np
 import torch
 
-def to_numpy(x):
+type JSONPrimitive = int | float | str | bool | None
+type JSONValue = JSONPrimitive | list[JSONValue] | dict[str, JSONValue]
+
+type NumpyValue = np.ndarray | np.integer | np.floating
+type SerializableValue = JSONValue | NumpyValue
+
+def to_numpy(x: np.ndarray | torch.Tensor) -> np.ndarray:
     if isinstance(x, np.ndarray):
         return x
     if torch.is_tensor(x):
         return x.detach().cpu().numpy()
     return np.asarray(x)
 
-def to_cpu(x):
+def to_cpu(x: torch.Tensor | list) -> torch.Tensor | list:
     if torch.is_tensor(x):
         return x.cpu()
-    if isinstance(x, list):
-        if all(torch.is_tensor(item) for item in x):
-            return [item.cpu() for item in x]
+    if isinstance(x, list) and all(torch.is_tensor(item) for item in x):
+        return [item.cpu() for item in x]
     return x
 
 def expand_path(p: str | Path) -> Path:
@@ -26,10 +30,8 @@ def expand_path(p: str | Path) -> Path:
 def ensure_parent(path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
 
-def convert_numpy_to_native(obj: Any) -> Any:
-    """Make calibration output JSON serializable."""
-    import numpy as np
-
+def convert_numpy_to_native(obj: SerializableValue) -> JSONValue:
+    """Convert NumPy values into JSON-serializable native Python types."""
     if isinstance(obj, np.ndarray):
         return obj.tolist()
     if isinstance(obj, (np.integer, np.floating)):
@@ -40,7 +42,7 @@ def convert_numpy_to_native(obj: Any) -> Any:
         return [convert_numpy_to_native(x) for x in obj]
     return obj
 
-def convert_multitask_preds(calib_preds):
+def convert_multitask_preds(calib_preds: list[list[np.ndarray]]) -> list[np.ndarray]:
     """
     Convert multi-task model predictions into per-task NumPy arrays.
 
@@ -50,8 +52,8 @@ def convert_multitask_preds(calib_preds):
 
     Returns:
         List[np.ndarray]: One NumPy array per task, with shape (N, C_task_i), where N is the total
-                          number of samples across all batches, and C_task_i is the number of classes
-                          for task i.
+                          number of samples across all batches, and C_task_i is the 
+                          number of classes for task i.
     """
     if not calib_preds or not isinstance(calib_preds[0], list):
         raise ValueError(

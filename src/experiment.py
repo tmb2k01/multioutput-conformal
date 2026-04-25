@@ -1,26 +1,24 @@
 from __future__ import annotations
+
 import copy
 import os
-import yaml
-import pandas as pd
-import numpy as np
-
 from typing import Any
+
 import numpy as np
+import pandas as pd
+import yaml
 
 from core.predictor import ConformalPredictor
 from data.datamodule import MultiOutputDataModule
-from core.calibrators import HighLevelCalibrator, LowLevelCalibrator
-from core.models import HighLevelModel, LowLevelModel
-
 from src.metrics import (
+    compute_covgap,
+    compute_efficiency,
+    compute_informativeness,
     compute_taskwise_covgap,
     compute_taskwise_efficiency,
     compute_taskwise_informativeness,
-    compute_efficiency,
-    compute_informativeness,
-    compute_covgap,
 )
+
 
 def deep_merge(base: dict, override: dict) -> dict:
     result = copy.deepcopy(base)
@@ -51,7 +49,9 @@ def _validate_config(exp: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any
     return data_cfg, pred_cfg, list(task_num_classes), cal_level
 
 
-def _build_data_module(data_cfg: dict[str, Any], task_num_classes: list[int], iteration: int):
+def _build_data_module(
+    data_cfg: dict[str, Any], task_num_classes: list[int], iteration: int
+) -> MultiOutputDataModule:
     return MultiOutputDataModule(
         root_dir=data_cfg["data_root"],
         task_num_classes=task_num_classes,
@@ -61,7 +61,7 @@ def _build_data_module(data_cfg: dict[str, Any], task_num_classes: list[int], it
     )
 
 
-def _build_predictor(pred_cfg: dict[str, Any], task_num_classes: list[int]):
+def _build_predictor(pred_cfg: dict[str, Any], task_num_classes: list[int]) -> ConformalPredictor:
     return ConformalPredictor.load(
         model_cls=globals()[pred_cfg["model_cls"]],
         calibrator_cls=globals()[pred_cfg["calibrator_cls"]],
@@ -219,8 +219,8 @@ def run(exp: dict[str, Any]) -> dict[str, float]:
 
     return _summarize_low_level(exp["name"], all_metrics)
 
-def run_experiments(config_path: str):
-    with open(config_path, "r") as f:
+def run_experiments(config_path: str) -> None:
+    with open(config_path) as f:
         config = yaml.safe_load(f)
 
     defaults = config.get("defaults", {})
@@ -233,4 +233,9 @@ def run_experiments(config_path: str):
 
     name = config_path.split("/")[-1].replace(".yaml", "")
     os.makedirs("./results", exist_ok=True)
-    pd.DataFrame([run(exp) for exp in resolved_experiments]).to_csv(f"./results/{name}-results.csv", index=False, float_format="%.4f")
+    results_df = pd.DataFrame([run(exp) for exp in resolved_experiments])
+    results_df.to_csv(
+        f"./results/{name}-results.csv",
+        index=False,
+        float_format="%.4f",
+    )

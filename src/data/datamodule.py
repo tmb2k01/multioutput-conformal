@@ -21,7 +21,14 @@ class MultiOutputDataModule(pl.LightningDataModule):
         num_workers (int): Number of subprocesses for data loading.
     """
 
-    def __init__(self, root_dir, task_num_classes, batch_size=32, num_workers=4, split_idx=None) -> None:
+    def __init__(
+        self,
+        root_dir: str,
+        task_num_classes: list[int],
+        batch_size: int = 32,
+        num_workers: int = 4,
+        split_idx: int | None = None,
+    ) -> None:
         super().__init__()
         self.root_dir = root_dir
         self.task_num_classes = task_num_classes
@@ -42,13 +49,14 @@ class MultiOutputDataModule(pl.LightningDataModule):
             transform=Resize((256, 256)),
         )
 
+        suffix = f"_{self.iter}" if self.iter is not None else ""
         self.test_dataset = MultiOutputDataset(
-            root_dir=os.path.join(self.root_dir, f"test{f'_{self.iter}'if self.iter is not None else ''}"),
+            root_dir=os.path.join(self.root_dir, f"test{suffix}"),
             task_num_classes=self.task_num_classes,
             transform=Resize((256, 256)),
         )
         self.calib_dataset = MultiOutputDataset(
-            root_dir=os.path.join(self.root_dir, f"calib{f'_{self.iter}'if self.iter is not None else ''}"),
+            root_dir=os.path.join(self.root_dir, f"calib{suffix}"),
             task_num_classes=self.task_num_classes,
             transform=Resize((256, 256)),
         )
@@ -60,7 +68,7 @@ class MultiOutputDataModule(pl.LightningDataModule):
             "calib": self.calib_dataset,
         }
 
-    def train_dataloader(self):
+    def train_dataloader(self) -> DataLoader:
         """Returns the training DataLoader."""
         return DataLoader(
             self.train_dataset,
@@ -69,7 +77,7 @@ class MultiOutputDataModule(pl.LightningDataModule):
             num_workers=self.num_workers,
         )
 
-    def val_dataloader(self):
+    def val_dataloader(self) -> DataLoader:
         """Returns the validation DataLoader."""
         return DataLoader(
             self.val_dataset,
@@ -78,7 +86,7 @@ class MultiOutputDataModule(pl.LightningDataModule):
             num_workers=self.num_workers,
         )
 
-    def test_dataloader(self):
+    def test_dataloader(self) -> DataLoader:
         """Returns the test DataLoader."""
         return DataLoader(
             self.test_dataset,
@@ -87,7 +95,7 @@ class MultiOutputDataModule(pl.LightningDataModule):
             num_workers=self.num_workers,
         )
 
-    def calib_dataloader(self):
+    def calib_dataloader(self) -> DataLoader:
         """Returns the calibration DataLoader."""
         return DataLoader(
             self.calib_dataset,

@@ -11,8 +11,8 @@ NonconformityKey = Literal["hinge", "margin", "pip"]
 CalibrationFn = Callable[..., np.ndarray]
 NonconformityFn = Callable[..., np.ndarray]
 
-def _jsonify(x: Any) -> Any:
-    """Recursively convert common non-JSON types (e.g., numpy) into JSON-serializable Python types."""
+def _jsonify(x: object) -> object:
+    """Recursively convert common non-JSON types (e.g., numpy) to JSON-serializable types."""
     # numpy scalars (np.float32, np.int64, etc.)
     if isinstance(x, np.generic):
         return x.item()

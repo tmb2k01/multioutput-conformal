@@ -8,11 +8,13 @@ def hinge_loss(
     """
     Computes the hinge loss nonconformity score for all classes.
 
-    The hinge loss for a class is defined as 1 minus the predicted probability assigned to that class.
+    The hinge loss for a class is defined as 1 minus the predicted 
+    probability assigned to that class.
 
     Args:
         softmax (Union[np.ndarray, List[np.ndarray]]): Predicted softmax probabilities.
-            - Shape (B, C) for single-task, where B is the batch size and C is the number of classes.
+            - Shape (B, C) for single-task, where B is the batch size 
+              and C is the number of classes.
             - List of arrays for multi-task, each of shape (B, C_t).
 
     Returns:
@@ -36,7 +38,8 @@ def margin_score(
 
     Args:
         softmax (Union[np.ndarray, List[np.ndarray]]): Predicted softmax probabilities.
-            - Shape (B, C) for single-task, where B is the batch size and C is the number of classes.
+            - Shape (B, C) for single-task, where B is the batch size 
+              and C is the number of classes.
             - List of arrays for multi-task, each of shape (B, C_t).
 
     Returns:
@@ -73,7 +76,8 @@ def pip_score(
 
     Args:
         softmax (Union[np.ndarray, List[np.ndarray]]): Predicted softmax probabilities.
-            - Shape (B, C) for single-task, where B is the batch size and C is the number of classes.
+            - Shape (B, C) for single-task, where B is the batch size 
+              and C is the number of classes.
             - List of arrays for multi-task, each of shape (B, C_t).
 
     Returns:

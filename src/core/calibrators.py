@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Any, cast
+from typing import Any
 
 import numpy as np
 
@@ -43,7 +43,7 @@ def _available_keys_msg(mapping_name: str, keys: list[str], limit: int = 30) -> 
     return f"Available {mapping_name} keys: {shown}{suffix}"
 
 
-def _get_from_dict(d: dict, key: str, *, what: str) -> Any:
+def _get_from_dict[T](d: dict[str, T], key: str, what: str) -> T:
     try:
         return d[key]
     except KeyError as e:
@@ -82,29 +82,29 @@ class BaseCalibrator(ABC):
     def __init__(
         self,
         *,
-        calibrationFn: CalibrationFn,
-        calibrationFnKey: str,
-        nonconformityFnKey: str,
+        calibration_fn: CalibrationFn,
+        calibration_fn_key: str,
+        nonconformity_fn_key: str,
         artifacts_dir: str = "./artifacts",
         alpha: float | None = None,
         load_on_init: bool = False,
     ) -> None:
-        if calibrationFn is None:
+        if calibration_fn is None:
             raise CalibratorConfigError("calibration_fn must be provided.")
-        if not calibrationFnKey:
+        if not calibration_fn_key:
             raise CalibratorConfigError("calibration_key must be a non-empty string.")
-        if not nonconformityFnKey:
+        if not nonconformity_fn_key:
             raise CalibratorConfigError("nonconformity_key must be a non-empty string.")
         if load_on_init and alpha is None:
             raise CalibratorConfigError(
                 "alpha must be provided when load_on_init=True."
             )
-        self.calibrationFn = calibrationFn
-        self.calibrationFnKey = calibrationFnKey
+        self.calibrationFn = calibration_fn
+        self.calibrationFnKey = calibration_fn_key
 
-        self.nonconformityFnKey = nonconformityFnKey
+        self.nonconformityFnKey = nonconformity_fn_key
         self.nonconformityFn = _get_from_dict(
-            NONCONFORMITY_FN_DIC, nonconformityFnKey, what="nonconformity"
+            NONCONFORMITY_FN_DIC, nonconformity_fn_key, what="nonconformity"
         )
 
         self.artifacts_dir = expand_path(artifacts_dir)
@@ -131,7 +131,7 @@ class BaseCalibrator(ABC):
         raise NotImplementedError
 
     def fit(
-        self, model_outputs: Any, labels: np.ndarray, alpha: float, **kwargs
+        self, model_outputs: Any, labels: np.ndarray, alpha: float, **kwargs: dict
     ) -> ThresholdBundle:
         alpha = _round_alpha(alpha)
 
@@ -226,8 +226,8 @@ class BaseCalibrator(ABC):
 
 @dataclass
 class HighLevelCalibrator(BaseCalibrator):
-    calibrationFnKey: str
-    nonconformityFnKey: str
+    calibration_fn_key: str
+    nonconformity_fn_key: str
     load_on_init: bool = False
     alpha: float = 0.05
     artifacts_dir: str = "./artifacts"
@@ -235,13 +235,13 @@ class HighLevelCalibrator(BaseCalibrator):
     def __post_init__(self) -> None:
         calibrationFn = _get_from_dict(
             CALIBRATION_FN_HIGH_DIC,
-            self.calibrationFnKey,
+            self.calibration_fn_key,
             what="high-level calibration",
         )
         super().__init__(
-            calibrationFn=calibrationFn,
-            calibrationFnKey=self.calibrationFnKey,
-            nonconformityFnKey=self.nonconformityFnKey,
+            calibration_fn=calibrationFn,
+            calibration_fn_key=self.calibration_fn_key,
+            nonconformity_fn_key=self.nonconformity_fn_key,
             alpha=self.alpha,
             load_on_init=self.load_on_init,
             artifacts_dir=self.artifacts_dir,
@@ -266,20 +266,20 @@ class HighLevelCalibrator(BaseCalibrator):
 
 @dataclass
 class LowLevelCalibrator(BaseCalibrator):
-    calibrationFnKey: str
-    nonconformityFnKey: str
+    calibration_fn_key: str
+    nonconformity_fn_key: str
     load_on_init: bool = False
     alpha: float = 0.05
     artifacts_dir: str = "./artifacts"
 
     def __post_init__(self) -> None:
         calibration_fn = _get_from_dict(
-            CALIBRATION_FN_LOW_DIC, self.calibrationFnKey, what="low-level calibration"
+            CALIBRATION_FN_LOW_DIC, self.calibration_fn_key, what="low-level calibration"
         )
         super().__init__(
-            calibrationFn=calibration_fn,
-            calibrationFnKey=self.calibrationFnKey,
-            nonconformityFnKey=self.nonconformityFnKey,
+            calibration_fn=calibration_fn,
+            calibration_fn_key=self.calibration_fn_key,
+            nonconformity_fn_key=self.nonconformity_fn_key,
             alpha=self.alpha,
             load_on_init=self.load_on_init,
             artifacts_dir=self.artifacts_dir,
@@ -294,5 +294,4 @@ class LowLevelCalibrator(BaseCalibrator):
         self, outputs: np.ndarray, labels: np.ndarray
     ) -> np.ndarray:
         full_scores = self.nonconformityFn(outputs)  # (B, C)
-        gt_scores = full_scores[np.arange(outputs.shape[0]), labels]  # (B,)
-        return gt_scores  # shape (B,)
+        return full_scores[np.arange(outputs.shape[0]), labels]  # (B,)

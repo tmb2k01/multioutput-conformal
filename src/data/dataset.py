@@ -1,7 +1,7 @@
 import os
 
 import torch
-import torchvision.transforms.functional as TF
+import torchvision
 from PIL import Image
 from torch.utils.data import Dataset
 
@@ -22,7 +22,11 @@ class MultiOutputDataset(Dataset):
     IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".bmp", ".webp"}
     LABEL_EXTENSIONS = {".txt"}
 
-    def __init__(self, root_dir, task_num_classes, transform=None) -> None:
+    def __init__(
+            self, 
+            root_dir: str, 
+            task_num_classes: list[int], 
+            transform: callable | None = None) -> None:
         img_dir = os.path.join(root_dir, "images")
         label_dir = os.path.join(root_dir, "labels")
 
@@ -59,7 +63,7 @@ class MultiOutputDataset(Dataset):
     def __len__(self) -> int:
         return len(self.samples)
 
-    def __getitem__(self, idx):
+    def __getitem__(self, idx: int) -> tuple[torch.Tensor, torch.Tensor]:
         """
         Loads and returns an image and its corresponding multi-task labels.
 
@@ -69,7 +73,7 @@ class MultiOutputDataset(Dataset):
         img_path, label_path = self.samples[idx]
 
         image = Image.open(img_path).convert("RGB")
-        image = TF.to_tensor(image)
+        image = torchvision.transforms.functional.to_tensor(image)
 
         with open(label_path, encoding="utf-8") as f:
             text = f.read().strip()
@@ -77,7 +81,8 @@ class MultiOutputDataset(Dataset):
 
         if len(labels) != len(self.task_num_classes):
             raise ValueError(
-                f"Expected {len(self.task_num_classes)} labels, but got {len(labels)} in {label_path}."
+                f"Expected {len(self.task_num_classes)} labels, "
+                f"but got {len(labels)} in {label_path}."
             )
 
         if self.transform:
@@ -86,7 +91,7 @@ class MultiOutputDataset(Dataset):
         return image, torch.tensor(labels, dtype=torch.long)
 
     @staticmethod
-    def _list_files_by_stem(root_dir, allowed_extensions):
+    def _list_files_by_stem(root_dir: str, allowed_extensions: set[str]) -> dict[str, str]:
         """
         Build a mapping:
             file stem -> full path

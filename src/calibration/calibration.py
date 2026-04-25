@@ -54,7 +54,7 @@ def calibration(
     true_labels: np.ndarray,
     high_level: bool = True,
     alpha: float = 0.05,
-    **kwargs
+    **kwargs: dict
 ) -> dict[str, dict[str, np.ndarray]]:
     """
     Perform conformal calibration using various nonconformity and calibration methods.
@@ -66,8 +66,8 @@ def calibration(
         true_labels (np.ndarray): True class labels. Shape (B,) or (T, B).
         high_level (bool): If True, use high-level calibration functions.
         alpha (float): Desired miscoverage level (e.g., 0.05 for 95% coverage).
-        **kwargs (dict): Additional keyword arguments to be passed to individual calibration functions,
-                         e.g., clusters, cluster_method, etc.
+        **kwargs (dict): Additional keyword arguments to be passed to individual calibration 
+                         functions, e.g., clusters, cluster_method, etc.
 
     Returns:
         dict[str, dict]: A nested dictionary of q-hat values with structure:
