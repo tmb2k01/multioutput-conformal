@@ -14,7 +14,7 @@ defaults:
       nonconformity_key: "hinge"
       train_model: false
       calibrate_model: true
-      alpha: 0.2
+      alpha: 0.05
 
 
 experiments:

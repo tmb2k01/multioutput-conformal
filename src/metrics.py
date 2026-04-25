@@ -2,18 +2,27 @@
 import numpy as np
 
 
-def compute_informativeness(predictions: list[np.ndarray]) -> float:
+def compute_informativeness(predictions: list[np.ndarray] | list[list[np.ndarray]]) -> float:
     """
-    Computes informativeness as the proportion of singleton prediction sets.
+    Informativeness = fraction of samples where the prediction set is singleton.
+
+    
 
     Args:
-        predictions (List[np.ndarray]): A list of prediction arrays per sample for a single task.
+        predictions (List[np.ndarray]): A list of predictions.
 
     Returns:
-        float: Fraction of predictions that contain exactly one label.
-    """
-    return sum(1 for pred in predictions if pred.size == 1) / len(predictions)
+        float:  
+            Single-task:
+                A sample is informative if its prediction array has size 1.
 
+            Multi-task:
+                A sample is informative if every task prediction array has size 1.
+    """
+    if isinstance(predictions[0], np.ndarray):
+        return np.mean([pred.size == 1 for pred in predictions])
+
+    return np.mean([all(task_preds[i].size == 1 for task_preds in predictions) for i in range(len(predictions[0]))])
 
 def compute_taskwise_informativeness(predictions: list[list[np.ndarray]]) -> np.ndarray:
     """
@@ -28,20 +37,7 @@ def compute_taskwise_informativeness(predictions: list[list[np.ndarray]]) -> np.
     return np.array([compute_informativeness(task_preds) for task_preds in predictions])
 
 
-def compute_overall_informativeness(predictions: list[list[np.ndarray]]) -> float:
-    """
-    Computes the average informativeness across all tasks.
-
-    Args:
-        predictions (List[List[np.ndarray]]): List of tasks, each containing a list of prediction arrays per sample.
-
-    Returns:
-        float: Mean informativeness across all tasks.
-    """
-    return np.mean(compute_taskwise_informativeness(predictions))
-
-
-def compute_efficiency(predictions: list[np.ndarray]) -> float:
+def compute_efficiency(predictions: list[np.ndarray] | list[list[np.ndarray]]) -> float:
     """
     Computes efficiency as the average size of the prediction sets.
 
@@ -51,7 +47,10 @@ def compute_efficiency(predictions: list[np.ndarray]) -> float:
     Returns:
         float: Average number of predicted labels per sample.
     """
-    return sum(len(pred) for pred in predictions) / len(predictions)
+    if isinstance(predictions[0], np.ndarray):
+        return np.mean([len(pred) for pred in predictions])
+
+    return np.mean([np.prod([len(task_preds[i]) for task_preds in predictions]) for i in range(len(predictions[0]))])
 
 
 def compute_taskwise_efficiency(predictions: list[list[np.ndarray]]) -> np.ndarray:
@@ -65,19 +64,6 @@ def compute_taskwise_efficiency(predictions: list[list[np.ndarray]]) -> np.ndarr
         np.ndarray: An array containing efficiency for each task.
     """
     return np.array([compute_efficiency(task_preds) for task_preds in predictions])
-
-
-def compute_overall_efficiency(predictions: list[list[np.ndarray]]) -> float:
-    """
-    Computes the average efficiency across all tasks.
-
-    Args:
-        predictions (List[List[np.ndarray]]): List of tasks, each containing a list of prediction arrays per sample.
-
-    Returns:
-        float: Mean efficiency across all tasks.
-    """
-    return np.mean(compute_taskwise_efficiency(predictions))
 
 
 def compute_weighted_efficiency(

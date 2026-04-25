@@ -12,14 +12,18 @@ def main() -> None:
     # )
 
     # predictor = ConformalPredictor.build(
-    #     model_cls=HighLevelModel,
-    #     calibrator_cls=HighLevelCalibrator,
+    #     model_cls=LowLevelModel,
+    #     calibrator_cls=LowLevelCalibrator,
     #     task_num_classes=[12, 11],
+    #     artifacts_dir="./artifacts/SGVehicle",
     # )
 
     # predictor.fit(data_module=dm, calibrate_model = False)
 
     run_experiments('/home/marcs/projects/masters-thesis/experiments/sgvehicle/hinge/hl_hl_cal.yaml')
+    #run_experiments('/home/marcs/projects/masters-thesis/experiments/sgvehicle/hinge/hl_ll_cal.yaml')
+    run_experiments('/home/marcs/projects/masters-thesis/experiments/sgvehicle/hinge/ll_hl_cal.yaml')
+    #run_experiments('/home/marcs/projects/masters-thesis/experiments/sgvehicle/hinge/ll_ll_cal.yaml')
 
 if __name__ == "__main__":
     main()

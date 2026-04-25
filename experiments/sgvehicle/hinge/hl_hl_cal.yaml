@@ -5,7 +5,7 @@ defaults:
       data_root: "./data/SGVehicle"
       batch_size: 64
       num_workers: 8
-      max_iter: 1
+      max_iter: 5
       task_num_classes: [12, 11]
     predictor:
       artifact_root: "./artifacts/SGVehicle/hl_model"

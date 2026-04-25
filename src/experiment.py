@@ -15,8 +15,6 @@ from core.models import HighLevelModel, LowLevelModel
 
 from src.metrics import (
     compute_taskwise_covgap,
-    compute_overall_efficiency,
-    compute_overall_informativeness,
     compute_taskwise_efficiency,
     compute_taskwise_informativeness,
     compute_efficiency,
@@ -89,8 +87,8 @@ def _compute_high_level_metrics(
     alpha: float,
 ) -> dict[str, Any]:
     return {
-        "overall_efficiency": compute_overall_efficiency(prediction),
-        "overall_informativeness": compute_overall_informativeness(prediction),
+        "efficiency": compute_efficiency(prediction),
+        "informativeness": compute_informativeness(prediction),
         "taskwise_efficiency": np.asarray(compute_taskwise_efficiency(prediction)),
         "taskwise_informativeness": np.asarray(compute_taskwise_informativeness(prediction)),
         "taskwise_covgap": np.asarray(
@@ -116,50 +114,62 @@ def _summarize_high_level(
     all_metrics: list[dict[str, Any]],
     n_tasks: int,
     task_num_classes: list[int],
-) -> dict[str, float]:
-    overall_eff = np.array([m["overall_efficiency"] for m in all_metrics])
-    overall_info = np.array([m["overall_informativeness"] for m in all_metrics])
-    taskwise_eff = np.array([m["taskwise_efficiency"] for m in all_metrics])         # (n_runs, n_tasks)
-    taskwise_info = np.array([m["taskwise_informativeness"] for m in all_metrics])   # (n_runs, n_tasks)
-    taskwise_covgap = np.array([m["taskwise_covgap"] for m in all_metrics])          # (n_runs, n_tasks)
+) -> dict[tuple[str, str], float | str]:
+    overall_eff = np.array([m["efficiency"] for m in all_metrics])
+    overall_info = np.array([m["informativeness"] for m in all_metrics])
+
+    taskwise_eff = np.array([m["taskwise_efficiency"] for m in all_metrics])
+    taskwise_info = np.array([m["taskwise_informativeness"] for m in all_metrics])
+    taskwise_covgap = np.array([m["taskwise_covgap"] for m in all_metrics])
 
     class_weights = np.array(task_num_classes) / np.sum(task_num_classes)
     overall_covgap = np.sum(taskwise_covgap * class_weights, axis=1)
 
     results = {
-        "experience_name": experience_name,
-        "overall_efficiency_mean": float(np.mean(overall_eff)),
-        "overall_efficiency_std": float(np.std(overall_eff)),
-        "overall_informativeness_mean": float(np.mean(overall_info)),
-        "overall_informativeness_std": float(np.std(overall_info)),
-        "overall_covgap_mean": float(np.mean(overall_covgap)),
-        "overall_covgap_std": float(np.std(overall_covgap)),
+        ("Experience", ""): experience_name,
+
+        ("Overall Eff", "mean"): float(np.mean(overall_eff)),
+        ("Overall Eff", "std"): float(np.std(overall_eff)),
+
+        ("Overall Inf", "mean"): float(np.mean(overall_info)),
+        ("Overall Inf", "std"): float(np.std(overall_info)),
+
+        ("Overall CovGap", "mean"): float(np.mean(overall_covgap)),
+        ("Overall CovGap", "std"): float(np.std(overall_covgap)),
     }
 
     for i in range(n_tasks):
-        results[f"taskwise_efficiency_mean_{i}"] = float(np.mean(taskwise_eff[:, i]))
-        results[f"taskwise_efficiency_std_{i}"] = float(np.std(taskwise_eff[:, i]))
-        results[f"taskwise_informativeness_mean_{i}"] = float(np.mean(taskwise_info[:, i]))
-        results[f"taskwise_informativeness_std_{i}"] = float(np.std(taskwise_info[:, i]))
-        results[f"taskwise_covgap_mean_{i}"] = float(np.mean(taskwise_covgap[:, i]))
-        results[f"taskwise_covgap_std_{i}"] = float(np.std(taskwise_covgap[:, i]))
+        results[(f"{i} - Task Eff", "mean")] = float(np.mean(taskwise_eff[:, i]))
+        results[(f"{i} - Task Eff", "std")] = float(np.std(taskwise_eff[:, i]))
+
+        results[(f"{i} - Task Inf", "mean")] = float(np.mean(taskwise_info[:, i]))
+        results[(f"{i} - Task Inf", "std")] = float(np.std(taskwise_info[:, i]))
+
+        results[(f"{i} - Task CovGap", "mean")] = float(np.mean(taskwise_covgap[:, i]))
+        results[(f"{i} - Task CovGap", "std")] = float(np.std(taskwise_covgap[:, i]))
 
     return results
 
 
-def _summarize_low_level(experience_name: str, all_metrics: list[dict[str, Any]]) -> dict[str, float]:
+def _summarize_low_level(
+    experience_name: str,
+    all_metrics: list[dict[str, Any]],
+) -> dict[tuple[str, str], float | str]:
     efficiency = np.array([m["efficiency"] for m in all_metrics])
     informativeness = np.array([m["informativeness"] for m in all_metrics])
     covgap = np.array([m["covgap"] for m in all_metrics])
 
     return {
-        "experience_name": experience_name,
-        "efficiency_mean": float(np.mean(efficiency)),
-        "efficiency_std": float(np.std(efficiency)),
-        "informativeness_mean": float(np.mean(informativeness)),
-        "informativeness_std": float(np.std(informativeness)),
-        "covgap_mean": float(np.mean(covgap)),
-        "covgap_std": float(np.std(covgap)),
+        ("Experience", ""): experience_name,
+
+        ("Overall Eff", "mean"): float(np.mean(efficiency)),
+        ("Overall Eff", "std"): float(np.std(efficiency)),
+
+        ("Overall Inf", "mean"): float(np.mean(informativeness)),
+        ("Overall Inf", "std"): float(np.std(informativeness)),
+
+        ("Overall CovGap", "mean"): float(np.mean(covgap)),
+        ("Overall CovGap", "std"): float(np.std(covgap)),
     }
 
 
@@ -187,10 +197,9 @@ def run(exp: dict[str, Any]) -> dict[str, float]:
         gt_labels = predictor.get_labels(dm.datasets["test"])
 
         if cal_level == "high":
-            y_trues = _extract_taskwise_true_labels(gt_labels)
             metrics = _compute_high_level_metrics(
                 prediction=prediction,
-                y_trues=y_trues,
+                y_trues=gt_labels,
                 task_num_classes=task_num_classes,
                 alpha=pred_cfg["alpha"],
             )
@@ -224,4 +233,4 @@ def run_experiments(config_path: str):
 
     name = config_path.split("/")[-1].replace(".yaml", "")
     os.makedirs("./results", exist_ok=True)
-    pd.DataFrame([run(exp) for exp in resolved_experiments]).to_csv(f"./results/{name}-results.csv", index=False)
+    pd.DataFrame([run(exp) for exp in resolved_experiments]).to_csv(f"./results/{name}-results.csv", index=False, float_format="%.4f")
