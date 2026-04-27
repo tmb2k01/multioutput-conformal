@@ -123,8 +123,8 @@ class ConformalPredictor:
         model = model_cls(
             task_num_classes=task_num_classes, learning_rate=learning_rate
         )
-        calibrator = calibrator_cls(calibrationFnKey=cp_type,
-                                    nonconformityFnKey=nonconformity_key,
+        calibrator = calibrator_cls(calibration_fn_key=cp_type,
+                                    nonconformity_fn_key=nonconformity_key,
                                     load_on_init=False,
                                     artifacts_dir=artifacts_dir)
 
@@ -166,8 +166,8 @@ class ConformalPredictor:
             str(ckpt), task_num_classes=task_num_classes
         )
         model.eval()
-        calibrator = calibrator_cls(calibrationFnKey=cp_type,
-                                    nonconformityFnKey=nonconformity_key,
+        calibrator = calibrator_cls(calibration_fn_key=cp_type,
+                                    nonconformity_fn_key=nonconformity_key,
                                     load_on_init=load_on_init,
                                     alpha=alpha,
                                     artifacts_dir=artifacts_dir,

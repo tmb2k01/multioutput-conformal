@@ -100,9 +100,9 @@ class BaseCalibrator(ABC):
                 "alpha must be provided when load_on_init=True."
             )
         self.calibrationFn = calibration_fn
-        self.calibrationFnKey = calibration_fn_key
+        self.calibration_fn_key = calibration_fn_key
 
-        self.nonconformityFnKey = nonconformity_fn_key
+        self.nonconformity_fn_key = nonconformity_fn_key
         self.nonconformityFn = _get_from_dict(
             NONCONFORMITY_FN_DIC, nonconformity_fn_key, what="nonconformity"
         )
@@ -119,8 +119,8 @@ class BaseCalibrator(ABC):
     def _thr_path(self, alpha: float) -> str:
         base = (
             f"{self.level}/"
-            f"{self.nonconformityFnKey}/"
-            f"{self.calibrationFnKey}/"
+            f"{self.nonconformity_fn_key}/"
+            f"{self.calibration_fn_key}/"
             f"alpha_{alpha:.2f}.json"
         )
         return f"{self.thresholds_root}/{base}" if self.thresholds_root else base
@@ -153,8 +153,8 @@ class BaseCalibrator(ABC):
 
         bundle = ThresholdBundle(
             level=self.level,
-            nonconformity_key=self.nonconformityFnKey,
-            calibration_key=self.calibrationFnKey,
+            nonconformity_key=self.nonconformity_fn_key,
+            calibration_key=self.calibration_fn_key,
             alpha=alpha,
             payload=payload,
         )

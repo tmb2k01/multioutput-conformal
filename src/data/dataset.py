@@ -1,4 +1,5 @@
 import os
+from collections.abc import Callable
 
 import torch
 import torchvision
@@ -16,7 +17,7 @@ class MultiOutputDataset(Dataset):
     Args:
         root_dir (str): Path to the dataset root containing 'images' and 'labels' subfolders.
         task_num_classes (List[int]): Number of classes for each task.
-        transform (callable, optional): Optional transform to apply to images.
+        transform (Callable, optional): Optional transform to apply to images.
     """
 
     IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".bmp", ".webp"}
@@ -26,7 +27,7 @@ class MultiOutputDataset(Dataset):
             self, 
             root_dir: str, 
             task_num_classes: list[int], 
-            transform: callable | None = None) -> None:
+            transform: Callable | None = None) -> None:
         img_dir = os.path.join(root_dir, "images")
         label_dir = os.path.join(root_dir, "labels")
 
