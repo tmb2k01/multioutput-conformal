@@ -8,8 +8,10 @@ import numpy as np
 import pandas as pd
 import yaml
 
-from core.predictor import ConformalPredictor
 from data.datamodule import MultiOutputDataModule
+from core.calibrators import LowLevelCalibrator, HighLevelCalibrator
+from core.models import LowLevelModel, HighLevelModel
+from core.predictor import ConformalPredictor
 from src.metrics import (
     compute_covgap,
     compute_efficiency,
@@ -71,13 +73,6 @@ def _build_predictor(pred_cfg: dict[str, Any], task_num_classes: list[int]) -> C
         nonconformity_key=pred_cfg["nonconformity_key"],
         cp_type=pred_cfg["cp_type"],
     )
-
-
-def _extract_taskwise_true_labels(gt_labels: np.ndarray) -> list[np.ndarray]:
-    gt_labels = np.asarray(gt_labels)
-    if gt_labels.ndim != 2:
-        raise ValueError(f"Expected gt_labels shape (n_samples, n_tasks), got {gt_labels.shape}")
-    return [gt_labels[:, i] for i in range(gt_labels.shape[1])]
 
 
 def _compute_high_level_metrics(
