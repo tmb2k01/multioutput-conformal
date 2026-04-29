@@ -45,8 +45,11 @@ class BaseModel(pl.LightningModule, ABC):
         # Collected at test time
         self._test_step_outputs: list[tuple[list[np.ndarray], list[np.ndarray]]] = []
 
+    # def train[T](self: T, mode: bool = True) -> T:
+    #     super().train(mode)
+    #     self.feature_extractor.eval()
+    #     return self
     
-
     # ---- core forward API ----
     @abstractmethod
     def forward_logits(self, x: torch.Tensor) -> Any:

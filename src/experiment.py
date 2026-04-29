@@ -219,6 +219,7 @@ def run_experiments(config_path: str) -> None:
         config = yaml.safe_load(f)
 
     defaults = config.get("defaults", {})
+    results_dir = config.get("results_dir", "./results")
     experiments = config["experiments"]
 
     resolved_experiments = [
@@ -227,10 +228,10 @@ def run_experiments(config_path: str) -> None:
     ]
 
     name = config_path.split("/")[-1].replace(".yaml", "")
-    os.makedirs("./results", exist_ok=True)
+    os.makedirs(results_dir, exist_ok=True)
     results_df = pd.DataFrame([run(exp) for exp in resolved_experiments])
     results_df.to_csv(
-        f"./results/{name}-results.csv",
+        f"{results_dir}/{name}-results.csv",
         index=False,
         float_format="%.4f",
     )

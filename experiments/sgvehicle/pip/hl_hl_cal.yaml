@@ -1,6 +1,6 @@
 version: 1
 
-results_dir: "./results/sgvehicle/hinge"
+results_dir: "./results/sgvehicle/pip"
 defaults:
     data_module:
       data_root: "./data/SGVehicle"
@@ -9,32 +9,32 @@ defaults:
       max_iter: 5
       task_num_classes: [12, 11]
     predictor:
-      artifact_root: "./artifacts/SGVehicle/ll_model"
-      model_cls: "LowLevelModel"
+      artifact_root: "./artifacts/SGVehicle/hl_model"
+      model_cls: "HighLevelModel"
       calibrator_cls: "HighLevelCalibrator"
-      nonconformity_key: "hinge"
+      nonconformity_key: "pip"
       train_model: false
       calibrate_model: true
       alpha: 0.05
 
 
 experiments:
-  - name: "ll_hlcal_scp_global"
+  - name: "hl_hlcal_scp_global"
     predictor:
       cp_type: "scp_global_threshold"
 
-  - name: "ll_hlcal_scp_task"
+  - name: "hl_hlcal_scp_task"
     predictor:
       cp_type: "scp_task_thresholds"
 
-  - name: "ll_hlcal_ccp_class"
+  - name: "hl_hlcal_ccp_class"
     predictor:
       cp_type: "ccp_class_thresholds"
 
-  - name: "ll_hlcal_ccp_task_cluster"
+  - name: "hl_hlcal_ccp_task_cluster"
     predictor:
       cp_type: "ccp_task_cluster_thresholds"
 
-  - name: "ll_hlcal_ccp_global_cluster"
+  - name: "hl_hlcal_ccp_global_cluster"
     predictor:
       cp_type: "ccp_global_cluster_thresholds"

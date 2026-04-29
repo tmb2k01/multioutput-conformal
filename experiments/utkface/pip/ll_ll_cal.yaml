@@ -1,6 +1,6 @@
 version: 1
 
-results_dir: "./results/utkface/hinge"
+results_dir: "./results/utkface/pip"
 defaults:
     data_module:
       data_root: "./data/UTKFace"
@@ -9,24 +9,24 @@ defaults:
       max_iter: 5
       task_num_classes: [2, 5]
     predictor:
-      artifact_root: "./artifacts/UTKFace/hl_model"
-      model_cls: "HighLevelModel"
+      artifact_root: "./artifacts/UTKFace/ll_model"
+      model_cls: "LowLevelModel"
       calibrator_cls: "LowLevelCalibrator"
-      nonconformity_key: "hinge"
+      nonconformity_key: "pip"
       train_model: false
       calibrate_model: true
       alpha: 0.05
 
 
 experiments:
-  - name: "hl_llcal_scp_global"
+  - name: "ll_llcal_scp_global"
     predictor:
       cp_type: "scp_global_threshold"
 
-  - name: "hl_llcal_ccp_class"
+  - name: "ll_llcal_ccp_class"
     predictor:
       cp_type: "ccp_class_thresholds"
 
-  - name: "hl_llcal_ccp_global_cluster"
+  - name: "ll_llcal_ccp_global_cluster"
     predictor:
       cp_type: "ccp_global_cluster_thresholds"

@@ -1,5 +1,6 @@
 version: 1
 
+results_dir: "./results/utkface/hinge"
 defaults:
     data_module:
       data_root: "./data/UTKFace"

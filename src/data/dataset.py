@@ -78,13 +78,17 @@ class MultiOutputDataset(Dataset):
 
         with open(label_path, encoding="utf-8") as f:
             text = f.read().strip()
-            labels = list(map(int, text.split()))
+            all_labels = list(map(int, text.split()))
 
-        if len(labels) != len(self.task_num_classes):
+        num_tasks = len(self.task_num_classes)
+
+        if len(all_labels) < num_tasks:
             raise ValueError(
-                f"Expected {len(self.task_num_classes)} labels, "
-                f"but got {len(labels)} in {label_path}."
+                f"Expected at least {num_tasks} labels, "
+                f"but got {len(all_labels)} in {label_path}."
             )
+
+        labels = all_labels[:num_tasks]
 
         if self.transform:
             image = self.transform(image)

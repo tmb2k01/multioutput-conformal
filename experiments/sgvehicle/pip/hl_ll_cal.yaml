@@ -1,18 +1,18 @@
 version: 1
 
-results_dir: "./results/utkface/hinge"
+results_dir: "./results/sgvehicle/pip"
 defaults:
     data_module:
-      data_root: "./data/UTKFace"
+      data_root: "./data/SGVehicle"
       batch_size: 64
       num_workers: 8
       max_iter: 5
-      task_num_classes: [2, 5]
+      task_num_classes: [12, 11]
     predictor:
-      artifact_root: "./artifacts/UTKFace/hl_model"
+      artifact_root: "./artifacts/SGVehicle/hl_model"
       model_cls: "HighLevelModel"
       calibrator_cls: "LowLevelCalibrator"
-      nonconformity_key: "hinge"
+      nonconformity_key: "pip"
       train_model: false
       calibrate_model: true
       alpha: 0.05

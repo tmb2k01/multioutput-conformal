@@ -1,4 +1,3 @@
-
 import numpy as np
 
 
@@ -13,7 +12,7 @@ def _get_prediction_set(
     Args:
         nonconformity_scores (Union[np.ndarray, List[np.ndarray]]):
             Nonconformity scores for predictions.
-            - Shape (B, C) for single-task, where B is the batch size 
+            - Shape (B, C) for single-task, where B is the batch size
               and C is the number of classes.
             - List of arrays for multi-task, each of shape (B, C_t).
 
@@ -26,7 +25,7 @@ def _get_prediction_set(
         List[List[np.ndarray]]:
             Indices of classes included in the prediction set.
             - For single-task: a list containing one list of 1D arrays (one per sample).
-            - For multi-task: a list of lists, each containing 1D arrays of indices per 
+            - For multi-task: a list of lists, each containing 1D arrays of indices per
                               sample for each task.
     """
 
@@ -71,7 +70,7 @@ def standard_prediction(
     Args:
         nonconformity_scores (Union[np.ndarray, List[np.ndarray]]):
             Nonconformity scores.
-            - Shape (B, C) for single-task, where B is the batch size 
+            - Shape (B, C) for single-task, where B is the batch size
               and C is the number of classes.
             - List of arrays for multi-task, each of shape (B, C_t).
 
@@ -132,7 +131,7 @@ def clustered_prediction(
     Args:
         nonconformity_scores (Union[np.ndarray, List[np.ndarray]]):
             Nonconformity scores for predictions.
-            - Shape (B, C) for single-task, where B is the batch size 
+            - Shape (B, C) for single-task, where B is the batch size
               and C is the number of classes.
             - List of arrays for multi-task, each of shape (B, C_t).
 
@@ -145,7 +144,9 @@ def clustered_prediction(
     """
     if isinstance(nonconformity_scores, np.ndarray):
         q_hat, clusters = _extract_qhat_and_clusters(q_hat_data)
-        assert isinstance(q_hat, np.ndarray), "Expected q_hat to be a np.ndarray for single-task."
+        assert isinstance(
+            q_hat, np.ndarray
+        ), "Expected q_hat to be a np.ndarray for single-task."
         assert isinstance(
             clusters, np.ndarray
         ), "Expected clusters to be a np.ndarray for single-task."

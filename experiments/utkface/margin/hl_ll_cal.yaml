@@ -1,6 +1,6 @@
 version: 1
 
-results_dir: "./results/utkface/hinge"
+results_dir: "./results/utkface/margin"
 defaults:
     data_module:
       data_root: "./data/UTKFace"
@@ -12,7 +12,7 @@ defaults:
       artifact_root: "./artifacts/UTKFace/hl_model"
       model_cls: "HighLevelModel"
       calibrator_cls: "LowLevelCalibrator"
-      nonconformity_key: "hinge"
+      nonconformity_key: "margin"
       train_model: false
       calibrate_model: true
       alpha: 0.05

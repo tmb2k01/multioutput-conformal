@@ -1,18 +1,18 @@
 version: 1
 
-results_dir: "./results/sgvehicle/hinge"
+results_dir: "./results/utkface/margin"
 defaults:
     data_module:
-      data_root: "./data/SGVehicle"
+      data_root: "./data/UTKFace"
       batch_size: 64
       num_workers: 8
       max_iter: 5
-      task_num_classes: [12, 11]
+      task_num_classes: [2, 5]
     predictor:
-      artifact_root: "./artifacts/SGVehicle/ll_model"
+      artifact_root: "./artifacts/UTKFace/ll_model"
       model_cls: "LowLevelModel"
       calibrator_cls: "HighLevelCalibrator"
-      nonconformity_key: "hinge"
+      nonconformity_key: "margin"
       train_model: false
       calibrate_model: true
       alpha: 0.05
