@@ -8,13 +8,14 @@ WANDB_KEY_FILE="${WANDB_KEY_FILE:-${PROJECT_ROOT}/.wandb_api_key}"
 DOCKER_RUN_ARGS="${DOCKER_RUN_ARGS:---shm-size=8g --ipc=host}"
 
 HOST_DATA_DIR="${1:-${PROJECT_ROOT}/data}"
-HOST_MODELS_DIR="${2:-${PROJECT_ROOT}/models}"
+HOST_ARTIFACTS_DIR="${2:-${PROJECT_ROOT}/artifacts}"
+CONFIG="${3:-experiments/utkface/hinge/ll_ll_cal.yaml}"
 HOST_LOGS_DIR="${PROJECT_ROOT}/lightning_logs"
 HOST_WANDB_DIR="${PROJECT_ROOT}/wandb"
 
-mkdir -p "${HOST_DATA_DIR}" "${HOST_MODELS_DIR}" "${HOST_LOGS_DIR}" "${HOST_WANDB_DIR}"
-chown -R "$(id -u)":"$(id -g)" "${HOST_MODELS_DIR}" "${HOST_LOGS_DIR}" "${HOST_WANDB_DIR}" 2>/dev/null || true
-chmod -R u+rwX "${HOST_MODELS_DIR}" "${HOST_LOGS_DIR}" "${HOST_WANDB_DIR}" || true
+mkdir -p "${HOST_DATA_DIR}" "${HOST_ARTIFACTS_DIR}" "${HOST_LOGS_DIR}" "${HOST_WANDB_DIR}"
+chown -R "$(id -u)":"$(id -g)" "${HOST_ARTIFACTS_DIR}" "${HOST_LOGS_DIR}" "${HOST_WANDB_DIR}" 2>/dev/null || true
+chmod -R u+rwX "${HOST_ARTIFACTS_DIR}" "${HOST_LOGS_DIR}" "${HOST_WANDB_DIR}" || true
 
 USER_FLAGS=()
 if [[ "${RUN_AS_HOST_UID:-1}" != "0" ]]; then
@@ -44,12 +45,13 @@ fi
 
 APP_ENVS=(
   -e DATA_DIR=/app/data
-  -e MODELS_DIR=/app/models
+  -e ARTIFACTS_ROOT=/app/artifacts
 )
 
 echo "Running training from image '${IMAGE_TAG}' (container: ${CONTAINER_NAME})"
-echo "Host data dir  : ${HOST_DATA_DIR}"
-echo "Host models dir: ${HOST_MODELS_DIR}"
+echo "Host data dir     : ${HOST_DATA_DIR}"
+echo "Host artifacts dir: ${HOST_ARTIFACTS_DIR}"
+echo "Config            : ${CONFIG}"
 echo "GPU args: ${GPU_ARGS[*]:-(none)}"
 
 docker run --rm \
@@ -60,9 +62,9 @@ docker run --rm \
   "${WANDB_ARGS[@]}" \
   "${APP_ENVS[@]}" \
   -v "${HOST_DATA_DIR}:/app/data:ro" \
-  -v "${HOST_MODELS_DIR}:/app/models:rw" \
+  -v "${HOST_ARTIFACTS_DIR}:/app/artifacts:rw" \
   -v "${PROJECT_ROOT}/static:/app/static:ro" \
   -v "${HOST_LOGS_DIR}:/app/lightning_logs:rw" \
   -v "${HOST_WANDB_DIR}:/app/wandb:rw" \
   "${IMAGE_TAG}" \
-  --train
+  train "${CONFIG}"

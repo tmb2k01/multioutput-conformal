@@ -17,47 +17,48 @@ The web interface is built using Gradio and provides an interactive way to use t
   - Conformal Prediction Type selection
 
 ### 2. Output Section
-- **Prediction Results Table**: Displays predictions with the following columns:
-  - Task/Class: The predicted class or task name
-  - Score: The nonconformity score for the prediction
-  - Threshold: The conformal prediction threshold
-  - Visual indicators (🟢) for predictions that pass the threshold
+- **Prediction Results Table**: Displays the conformal prediction set.
+  - High-level models: two columns (`Task`, `Class`).
+  - Low-level models: a single column listing the joint classes (the cartesian
+    product of the per-task classes).
+  - A green indicator (🟢) marks each class that is included in the prediction set
+    for the uploaded image.
 
 ## Configuration
 
-The web interface is configured through a JSON configuration file located at `static/config.json`. The configuration file defines:
+The web interface is configured through a JSON file, by default
+`static/ws-config.json` (override with `--config`). Trained artifacts are located
+under the directory given by the `ARTIFACTS_ROOT` environment variable (default
+`./artifacts/artifacts`), joined with the per-level `artifacts` subpath below.
 
 ### 1. Model Configurations
 Each model configuration includes:
-- **Tasks**: List of classification tasks with their classes
-- **Weights**: Paths to model checkpoint files
-  - Low-level model weights
-  - High-level model weights
-- **Thresholds**: Paths to calibration files
-  - Low-level model thresholds
-  - High-level model thresholds
+- **alpha**: Miscoverage level used to load the matching calibration thresholds.
+- **tasks**: List of classification tasks with their classes.
+- **artifacts**: Per-level artifact roots (relative to `ARTIFACTS_ROOT`). Each root
+  holds the model checkpoint under `models/` and the thresholds under
+  `thresholds/` (as produced by `ConformalPredictor`).
+  - `low`: artifact root for the low-level model
+  - `high`: artifact root for the high-level model
 
 ### Example Configuration
 ```json
 {
   "SGVehicle": {
+    "alpha": 0.05,
     "tasks": [
       {
         "name": "Color",
-        "classes": ["Yellow", "Orange", "Green", ...]
+        "classes": ["Yellow", "Orange", "Green", "..."]
       },
       {
         "name": "Type",
-        "classes": ["Sedan", "SUV", "Van", ...]
+        "classes": ["Sedan", "SUV", "Van", "..."]
       }
     ],
-    "weights": {
-      "low": "./models/sgvehicle-low-level-model.ckpt",
-      "high": "./models/sgvehicle-high-level-model.ckpt"
-    },
-    "thresholds": {
-      "low": "./models/sgvehicle-low-level-calibration.json",
-      "high": "./models/sgvehicle-high-level-calibration.json"
+    "artifacts": {
+      "low": "SGVehicle/ll_model",
+      "high": "SGVehicle/hl_model"
     }
   }
 }
@@ -65,9 +66,10 @@ Each model configuration includes:
 
 ## Usage
 
-1. **Starting the Interface**:
+1. **Starting the Interface** (run with `PYTHONPATH=src`):
    ```bash
-   python src/main.py
+   python -m main web_service                       # uses static/ws-config.json
+   python -m main web_service --config <path.json>  # custom config
    ```
 
 2. **Making Predictions**:
@@ -81,10 +83,12 @@ Each model configuration includes:
    4. View the results in the prediction table
 
 3. **Understanding Results**:
-   - The table shows predictions for each class/task
-   - Nonconformity scores indicate prediction uncertainty
-   - Thresholds show the conformal prediction boundaries
-   - Green checkmarks (🟢) indicate predictions that pass the threshold
+   - The table lists every class (per task for high-level, or joint class for
+     low-level).
+   - Green checkmarks (🟢) indicate the classes contained in the conformal
+     prediction set for the uploaded image at the configured `alpha`.
+   - If a checkpoint or threshold file is missing for the chosen combination, the
+     table shows a short "Unavailable for this configuration" message instead.
 
 ## Supported Conformal Prediction Types
 

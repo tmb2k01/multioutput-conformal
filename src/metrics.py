@@ -1,27 +1,41 @@
-from typing import List
 
 import numpy as np
 
 
-def compute_informativeness(predictions: List[np.ndarray]) -> float:
+def compute_informativeness(predictions: list[np.ndarray] | list[list[np.ndarray]]) -> float:
     """
-    Computes informativeness as the proportion of singleton prediction sets.
+    Informativeness = fraction of samples where the prediction set is singleton.
+
+    
 
     Args:
-        predictions (List[np.ndarray]): A list of prediction arrays per sample for a single task.
+        predictions (List[np.ndarray]): A list of predictions.
 
     Returns:
-        float: Fraction of predictions that contain exactly one label.
+        float:  
+            Single-task:
+                A sample is informative if its prediction array has size 1.
+
+            Multi-task:
+                A sample is informative if every task prediction array has size 1.
     """
-    return sum(1 for pred in predictions if pred.size == 1) / len(predictions)
+    if isinstance(predictions[0], np.ndarray):
+        return np.mean([pred.size == 1 for pred in predictions])
 
+    return np.mean(
+        [
+            all(task_preds[i].size == 1 for task_preds in predictions)
+            for i in range(len(predictions[0]))
+        ]
+    )
 
-def compute_taskwise_informativeness(predictions: List[List[np.ndarray]]) -> np.ndarray:
+def compute_taskwise_informativeness(predictions: list[list[np.ndarray]]) -> np.ndarray:
     """
     Computes informativeness for each task individually.
 
     Args:
-        predictions (List[List[np.ndarray]]): List of tasks, each containing a list of prediction arrays per sample.
+        predictions (List[List[np.ndarray]]): List of tasks, each containing
+                                              a list of prediction arrays per sample.
 
     Returns:
         np.ndarray: An array containing informativeness for each task.
@@ -29,20 +43,7 @@ def compute_taskwise_informativeness(predictions: List[List[np.ndarray]]) -> np.
     return np.array([compute_informativeness(task_preds) for task_preds in predictions])
 
 
-def compute_overall_informativeness(predictions: List[List[np.ndarray]]) -> float:
-    """
-    Computes the average informativeness across all tasks.
-
-    Args:
-        predictions (List[List[np.ndarray]]): List of tasks, each containing a list of prediction arrays per sample.
-
-    Returns:
-        float: Mean informativeness across all tasks.
-    """
-    return np.mean(compute_taskwise_informativeness(predictions))
-
-
-def compute_efficiency(predictions: List[np.ndarray]) -> float:
+def compute_efficiency(predictions: list[np.ndarray] | list[list[np.ndarray]]) -> float:
     """
     Computes efficiency as the average size of the prediction sets.
 
@@ -52,15 +53,24 @@ def compute_efficiency(predictions: List[np.ndarray]) -> float:
     Returns:
         float: Average number of predicted labels per sample.
     """
-    return sum(len(pred) for pred in predictions) / len(predictions)
+    if isinstance(predictions[0], np.ndarray):
+        return np.mean([len(pred) for pred in predictions])
+
+    return np.mean(
+        [
+            np.prod([len(task_preds[i]) for task_preds in predictions])
+            for i in range(len(predictions[0]))
+        ]
+    )
 
 
-def compute_taskwise_efficiency(predictions: List[List[np.ndarray]]) -> np.ndarray:
+def compute_taskwise_efficiency(predictions: list[list[np.ndarray]]) -> np.ndarray:
     """
     Computes efficiency for each task individually.
 
     Args:
-        predictions (List[List[np.ndarray]]): List of tasks, each containing a list of prediction arrays per sample.
+        predictions (List[List[np.ndarray]]): List of tasks, each containing a list of 
+                                              prediction arrays per sample.
 
     Returns:
         np.ndarray: An array containing efficiency for each task.
@@ -68,21 +78,8 @@ def compute_taskwise_efficiency(predictions: List[List[np.ndarray]]) -> np.ndarr
     return np.array([compute_efficiency(task_preds) for task_preds in predictions])
 
 
-def compute_overall_efficiency(predictions: List[List[np.ndarray]]) -> float:
-    """
-    Computes the average efficiency across all tasks.
-
-    Args:
-        predictions (List[List[np.ndarray]]): List of tasks, each containing a list of prediction arrays per sample.
-
-    Returns:
-        float: Mean efficiency across all tasks.
-    """
-    return np.mean(compute_taskwise_efficiency(predictions))
-
-
 def compute_weighted_efficiency(
-    predictions: List[List[np.ndarray]],
+    predictions: list[list[np.ndarray]],
     task_weights: np.ndarray,
     normalize_weights: bool = True,
 ) -> float:
@@ -90,8 +87,10 @@ def compute_weighted_efficiency(
     Computes weighted efficiency across tasks based on provided weights.
 
     Args:
-        predictions (List[List[np.ndarray]]): List of tasks, each containing a list of prediction arrays per sample.
-        task_weights (np.ndarray): Weights for each task. Should have same length as number of tasks.
+        predictions (List[List[np.ndarray]]): List of tasks, each containing a list 
+                                              of prediction arrays per sample.
+        task_weights (np.ndarray): Weights for each task. Should have same length 
+                                   as number of tasks.
         normalize_weights (bool): If True, weights will be normalized to sum to 1.
 
     Returns:
@@ -106,7 +105,7 @@ def compute_weighted_efficiency(
 
 
 def compute_weighted_informativeness(
-    predictions: List[List[np.ndarray]],
+    predictions: list[list[np.ndarray]],
     task_weights: np.ndarray,
     normalize_weights: bool = True,
 ) -> float:
@@ -114,8 +113,10 @@ def compute_weighted_informativeness(
     Computes weighted informativeness across tasks based on provided weights.
 
     Args:
-        predictions (List[List[np.ndarray]]): List of tasks, each containing a list of prediction arrays per sample.
-        task_weights (np.ndarray): Weights for each task. Should have same length as number of tasks.
+        predictions (List[List[np.ndarray]]): List of tasks, each containing a list of 
+                                              prediction arrays per sample.
+        task_weights (np.ndarray): Weights for each task. Should have same length 
+                                   as number of tasks.
         normalize_weights (bool): If True, weights will be normalized to sum to 1.
 
     Returns:
@@ -129,7 +130,7 @@ def compute_weighted_informativeness(
     return np.sum(taskwise_info * task_weights)
 
 
-def compute_class_based_weights(task_num_classes: List[int]) -> np.ndarray:
+def compute_class_based_weights(task_num_classes: list[int]) -> np.ndarray:
     """
     Computes task weights based on the number of classes in each task.
     Tasks with fewer classes get lower weights.
@@ -145,7 +146,7 @@ def compute_class_based_weights(task_num_classes: List[int]) -> np.ndarray:
 
 
 def compute_classwise_coverage(
-    predictions: List[np.ndarray], labels: np.ndarray, num_classes: int
+    predictions: list[np.ndarray], labels: np.ndarray, num_classes: int
 ) -> np.ndarray:
     """
     Computes empirical class-conditional coverage for a single task.
@@ -168,34 +169,43 @@ def compute_classwise_coverage(
     return np.array(coverages)
 
 
-def compute_overall_covgap(
-    predictions: List[List[np.ndarray]],
-    labels: List[np.ndarray],
-    task_num_classes: List[int],
+def compute_taskwise_covgap(
+    predictions: list[list[np.ndarray]],
+    labels: list[np.ndarray],
+    task_num_classes: list[int],
     alpha: float,
-) -> float:
+) -> list[float]:
     """
-    Computes average class coverage gap (CovGap) across tasks.
+    Computes classes coverage gaps (CovGap).
 
     Args:
-        predictions (List[List[np.ndarray]]): List of tasks, each containing prediction sets per sample.
+        predictions (List[List[np.ndarray]]): List of tasks, each containing prediction 
+                                              sets per sample.
         labels (List[np.ndarray]): List of true label arrays for each task.
         task_num_classes (List[int]): Number of classes for each task.
         alpha (float): Significance level.
 
     Returns:
-        float: CovGap value.
+        float: CovGap values.
     """
-    all_coverages = []
-    for preds, lbls, C in zip(predictions, labels, task_num_classes):
+    taskwise_coverages = []
+
+    for preds, lbls, C in zip(predictions, labels, task_num_classes, strict=False):
         class_cov = compute_classwise_coverage(preds, lbls, C)
-        all_coverages.extend(class_cov)
+        class_cov = np.asarray(class_cov)
 
-    all_coverages = np.array(all_coverages)
-    return 100 * np.mean(np.abs(all_coverages - (1 - alpha)))
+        cov_gap = 100 * np.mean(np.abs(class_cov - (1 - alpha)))
+        taskwise_coverages.append(cov_gap)
+
+    return taskwise_coverages
 
 
-def compute_covgap(predictions, labels, num_classes, alpha):
+def compute_covgap(
+    predictions: list[np.ndarray],
+    labels: np.ndarray,
+    num_classes: int,
+    alpha: float,
+) -> float:
     """
     Compute average class coverage gap (CovGap) for a single task.
     """

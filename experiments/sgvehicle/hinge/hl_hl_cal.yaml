@@ -1,0 +1,40 @@
+version: 1
+
+results_dir: "./results/sgvehicle/hinge"
+defaults:
+    data_module:
+      data_root: "./data/SGVehicle"
+      batch_size: 64
+      num_workers: 8
+      max_iter: 5
+      task_num_classes: [12, 11]
+    predictor:
+      artifact_root: "./artifacts/SGVehicle/hl_model"
+      model_cls: "HighLevelModel"
+      calibrator_cls: "HighLevelCalibrator"
+      nonconformity_key: "hinge"
+      train_model: false
+      calibrate_model: true
+      alpha: 0.05
+
+
+experiments:
+  - name: "hl_hlcal_scp_global"
+    predictor:
+      cp_type: "scp_global_threshold"
+
+  - name: "hl_hlcal_scp_task"
+    predictor:
+      cp_type: "scp_task_thresholds"
+
+  - name: "hl_hlcal_ccp_class"
+    predictor:
+      cp_type: "ccp_class_thresholds"
+
+  - name: "hl_hlcal_ccp_task_cluster"
+    predictor:
+      cp_type: "ccp_task_cluster_thresholds"
+
+  - name: "hl_hlcal_ccp_global_cluster"
+    predictor:
+      cp_type: "ccp_global_cluster_thresholds"

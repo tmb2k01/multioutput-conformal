@@ -1,16 +1,17 @@
-from typing import Callable, Counter, Dict, List, Tuple, Union
+from collections import Counter
+from collections.abc import Callable
 
 import numpy as np
 from sklearn.cluster import AgglomerativeClustering, KMeans
 
-from src.calibration.clustering_utils import (
+from calibration.clustering_utils import (
     embed_all_classes,
     embed_all_tasks,
     get_clustering_parameters,
 )
 
 
-def get_quantile_threshold(alpha):
+def get_quantile_threshold(alpha: float) -> int:
     """
     Compute smallest n such that ceil((n+1)*(1-alpha)/n) <= 1
     """
@@ -52,15 +53,17 @@ def compute_qhat_scp_global(
     nonconformity_scores: np.ndarray,
     true_labels: np.ndarray,
     alpha: float,
-    **kwargs,
+    **kwargs: dict,
 ) -> float:
     """
     Compute the q-hat value for the Standard Conformal Prediction global calibration method.
 
     Args:
-        nonconformity_scores (np.ndarray): Nonconformity scores of the ground truth labels with shape
-                                           (T, B) or (B,) for multi-task or single-task setting.
-        true_labels (np.ndarray): Ground truth labels with shape (T, B) or (B,) for multi-task or single-task setting.
+        nonconformity_scores (np.ndarray): Nonconformity scores of the ground truth labels with 
+                                           shape (T, B) or (B,) for multi-task or single-task 
+                                           setting.
+        true_labels (np.ndarray): Ground truth labels with shape (T, B) or (B,) for multi-task or 
+                                  single-task setting.
         alpha (float): Miscoverage level.
         **kwargs: Ignored.
 
@@ -87,13 +90,14 @@ def compute_qhat_scp_task(
     nonconformity_scores: np.ndarray,
     true_labels: np.ndarray,
     alpha: float,
-    **kwargs,
+    **kwargs: dict,
 ) -> np.ndarray:
     """
     Compute the q-hat value for the Standard Conformal Prediction task-wise calibration method.
 
     Args:
-        nonconformity_scores (np.ndarray): Nonconformity scores of the ground truth labels with shape (T, B).
+        nonconformity_scores (np.ndarray): Nonconformity scores of the ground truth labels with 
+                                           shape (T, B).
         true_labels (np.ndarray): Ground truth labels with shape (T, B) with true labels per task.
         alpha (float): Miscoverage level.
         **kwargs: Ignored.
@@ -115,19 +119,22 @@ def compute_qhat_ccp_class(
     nonconformity_scores: np.ndarray,
     true_labels: np.ndarray,
     alpha: float,
-    **kwargs,
-) -> Union[np.ndarray, List[np.ndarray]]:
+    **kwargs: dict,
+) -> np.ndarray | list[np.ndarray]:
     """
     Compute the q-hat values for the CCP class-wise calibration method.
 
     Args:
-        nonconformity_scores (np.ndarray): Nonconformity scores of the ground truth labels with shape
-                                           (T, B) or (B,) for multi-task or single-task setting.
-        true_labels (np.ndarray): Ground truth labels with shape (T, B) or (B,) for multi-task or single-task setting.
+        nonconformity_scores (np.ndarray): Nonconformity scores of the ground truth labels with 
+                                           shape (T, B) or (B,) for multi-task or single-task 
+                                           setting.
+        true_labels (np.ndarray): Ground truth labels with shape (T, B) or (B,) for multi-task or 
+                                  single-task setting.
         alpha (float): Miscoverage level.
 
     Returns:
-        Union[np.ndarray, List[np.ndarray]]: Classwise q-hat values. Shape (T, C) for multi-task or (C,) for single-task.
+        Union[np.ndarray, List[np.ndarray]]: Classwise q-hat values. Shape (T, C) for multi-task or 
+                                             (C,) for single-task.
     """
 
     def vectorized_qhat(task_scores: np.ndarray, task_labels: np.ndarray) -> np.ndarray:
@@ -164,26 +171,26 @@ def compute_qhat_ccp_class(
     if nonconformity_scores.ndim == 2:
         return [
             vectorized_qhat(scores_t, labels_t)
-            for scores_t, labels_t in zip(nonconformity_scores, true_labels)
+            for scores_t, labels_t in zip(nonconformity_scores, true_labels, strict=False)
         ]
 
-    else:
-        return vectorized_qhat(nonconformity_scores, true_labels)
+    return vectorized_qhat(nonconformity_scores, true_labels)
 
 
 def compute_qhat_ccp_task_cluster(
     nonconformity_scores: np.ndarray,
     true_labels: np.ndarray,
     alpha: float,
-    n_clusters: Union[int, str] = "auto",
+    n_clusters: int | str = "auto",
     cluster_method: str = "kmeans",
-    q: Tuple[float, ...] = (0.5, 0.6, 0.7, 0.8, 0.9),
+    q: tuple[float, ...] = (0.5, 0.6, 0.7, 0.8, 0.9),
 ) -> dict:
     """
     Compute q-hat values per task using Clustered Conformal Prediction (CCP).
 
     Args:
-        nonconformity_scores (np.ndarray): Nonconformity scores of the ground truth labels with shape (T, B).
+        nonconformity_scores (np.ndarray): Nonconformity scores of the ground 
+                                           truth labels with shape (T, B).
         true_labels (np.ndarray): Ground truth labels with shape (T, B) with true labels per task.
         alpha (float): The miscoverage level.
         n_clusters (int): The number of clusters per task.
@@ -303,16 +310,18 @@ def compute_qhat_ccp_global_cluster(
     nonconformity_scores: np.ndarray,
     true_labels: np.ndarray,
     alpha: float,
-    n_clusters: Union[int, str] = "auto",
+    n_clusters: int | str = "auto",
     cluster_method: str = "kmeans",
-    q: Tuple[float, ...] = (0.5, 0.6, 0.7, 0.8, 0.9),
+    q: tuple[float, ...] = (0.5, 0.6, 0.7, 0.8, 0.9),
 ) -> dict:
     """
     Compute the q-hat value for the Clastered Conformal Prediction method globally.
     Args:
-        nonconformity_scores (np.ndarray): Nonconformity scores of the ground truth labels with shape
-                                           (T, B) or (B,) for multi-task or single-task setting.
-        true_labels (np.ndarray): Ground truth labels with shape (T, B) or (B,) for multi-task or single-task setting.
+        nonconformity_scores (np.ndarray): Nonconformity scores of the ground truth labels 
+                                           with shape (T, B) or (B,) for multi-task or single-task
+                                           setting.
+        true_labels (np.ndarray): Ground truth labels with shape (T, B) or (B,) for multi-task or 
+                                  single-task setting.
         alpha (float): The miscoverage level.
         n_clusters (int): The number of clusters.
         cluster_method (str): The clustering method to use.
@@ -413,7 +422,7 @@ def compute_qhat_ccp_global_cluster(
     return result
 
 
-CALIBRATION_FN_HIGH_DIC: Dict[str, Callable[..., float]] = {
+CALIBRATION_FN_HIGH_DIC: dict[str, Callable[..., float]] = {
     "scp_global_threshold": compute_qhat_scp_global,
     "scp_task_thresholds": compute_qhat_scp_task,
     "ccp_class_thresholds": compute_qhat_ccp_class,
@@ -421,8 +430,13 @@ CALIBRATION_FN_HIGH_DIC: Dict[str, Callable[..., float]] = {
     "ccp_global_cluster_thresholds": compute_qhat_ccp_global_cluster,
 }
 
-CALIBRATION_FN_LOW_DIC: Dict[str, Callable[..., float]] = {
+CALIBRATION_FN_LOW_DIC: dict[str, Callable[..., float]] = {
     "scp_global_threshold": compute_qhat_scp_global,
     "ccp_class_thresholds": compute_qhat_ccp_class,
-    "ccp_global_clusters": compute_qhat_ccp_global_cluster,
+    "ccp_global_cluster_thresholds": compute_qhat_ccp_global_cluster,
+}
+
+CLUSTER_FN_DIC: dict[str, Callable[..., dict]] = {
+    "ccp_task_cluster_thresholds": compute_qhat_ccp_task_cluster,
+    "ccp_global_cluster_thresholds": compute_qhat_ccp_global_cluster,
 }

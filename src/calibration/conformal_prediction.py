@@ -1,13 +1,10 @@
-from typing import List, Union
-
 import numpy as np
-import torch
 
 
 def _get_prediction_set(
-    nonconformity_scores: Union[np.ndarray, List[np.ndarray]],
-    thresholds: Union[float, np.ndarray, List[np.ndarray]],
-) -> Union[np.ndarray, List[np.ndarray]]:
+    nonconformity_scores: np.ndarray | list[np.ndarray],
+    thresholds: float | np.ndarray | list[np.ndarray],
+) -> np.ndarray | list[np.ndarray]:
     """
     Internal helper to compute prediction sets where each class is included if its nonconformity
     score is less than or equal to the corresponding threshold.
@@ -15,7 +12,8 @@ def _get_prediction_set(
     Args:
         nonconformity_scores (Union[np.ndarray, List[np.ndarray]]):
             Nonconformity scores for predictions.
-            - Shape (B, C) for single-task, where B is the batch size and C is the number of classes.
+            - Shape (B, C) for single-task, where B is the batch size
+              and C is the number of classes.
             - List of arrays for multi-task, each of shape (B, C_t).
 
         thresholds (Union[float, np.ndarray, List[np.ndarray]]):
@@ -27,10 +25,13 @@ def _get_prediction_set(
         List[List[np.ndarray]]:
             Indices of classes included in the prediction set.
             - For single-task: a list containing one list of 1D arrays (one per sample).
-            - For multi-task: a list of lists, each containing 1D arrays of indices per sample for each task.
+            - For multi-task: a list of lists, each containing 1D arrays of indices per
+                              sample for each task.
     """
 
-    def compute_task(task_scores, task_thresholds):
+    def compute_task(
+        task_scores: np.ndarray, task_thresholds: float | np.ndarray
+    ) -> list[np.ndarray]:
         task_scores = np.asarray(task_scores)
         if np.isscalar(task_thresholds):
             task_thresholds = np.full(task_scores.shape, task_thresholds)
@@ -38,28 +39,27 @@ def _get_prediction_set(
             task_thresholds = np.broadcast_to(task_thresholds, task_scores.shape)
         return [
             np.where(row <= thresh)[0]
-            for row, thresh in zip(task_scores, task_thresholds)
+            for row, thresh in zip(task_scores, task_thresholds, strict=False)
         ]
 
     if isinstance(nonconformity_scores, np.ndarray):
         return compute_task(nonconformity_scores, thresholds)
 
-    elif isinstance(nonconformity_scores, list):
+    if isinstance(nonconformity_scores, list):
         if np.isscalar(thresholds) or isinstance(thresholds, np.ndarray):
             thresholds = np.full(len(nonconformity_scores), thresholds)
         return [
             compute_task(scores, thresh)
-            for scores, thresh in zip(nonconformity_scores, thresholds)
+            for scores, thresh in zip(nonconformity_scores, thresholds, strict=False)
         ]
 
-    else:
-        raise ValueError("nonconformity_scores must be an ndarray or list of ndarrays.")
+    raise ValueError("nonconformity_scores must be an ndarray or list of ndarrays.")
 
 
 def standard_prediction(
-    nonconformity_scores: Union[np.ndarray, List[np.ndarray]],
-    q_hat: Union[float, np.ndarray, List[np.ndarray]],
-) -> Union[np.ndarray, List[np.ndarray]]:
+    nonconformity_scores: np.ndarray | list[np.ndarray],
+    q_hat: float | np.ndarray | list[np.ndarray],
+) -> np.ndarray | list[np.ndarray]:
     """
     Computes prediction sets using standard (global or task-wise) conformal prediction thresholds.
     Can be used for:
@@ -70,7 +70,8 @@ def standard_prediction(
     Args:
         nonconformity_scores (Union[np.ndarray, List[np.ndarray]]):
             Nonconformity scores.
-            - Shape (B, C) for single-task, where B is the batch size and C is the number of classes.
+            - Shape (B, C) for single-task, where B is the batch size
+              and C is the number of classes.
             - List of arrays for multi-task, each of shape (B, C_t).
 
         q_hat (Union[float, np.ndarray, List[np.ndarray]]):
@@ -85,7 +86,9 @@ def standard_prediction(
     return _get_prediction_set(nonconformity_scores, q_hat)
 
 
-def _extract_qhat_and_clusters(data: dict):
+def _extract_qhat_and_clusters(
+    data: dict,
+) -> tuple[np.ndarray | list[np.ndarray], np.ndarray | list[np.ndarray]]:
     """
     Extracts q_hat and cluster mappings from the provided configuration.
     This is used for Clustered Class-Conditional Prediction (CCP).
@@ -101,7 +104,7 @@ def _extract_qhat_and_clusters(data: dict):
         q_hat_shared = data["cluster_qhats"]
         q_hat = []
         clusters = []
-        if isinstance(data["class_to_cluster_mapping"], list):
+        if isinstance(data["class_to_cluster_mapping"], np.ndarray):
             clusters = data["class_to_cluster_mapping"]
             q_hat = q_hat_shared
         else:
@@ -109,19 +112,18 @@ def _extract_qhat_and_clusters(data: dict):
                 clusters.append(data["class_to_cluster_mapping"][task_id])
                 q_hat.append(q_hat_shared)
         return q_hat, clusters
-    else:
-        q_hat = []
-        clusters = []
-        for task_id in sorted(data.keys()):
-            q_hat.append(data[task_id]["qhats"])
-            clusters.append(data[task_id]["mapping"])
-        return q_hat, clusters
+    q_hat = []
+    clusters = []
+    for task_id in sorted(data.keys()):
+        q_hat.append(data[task_id]["qhats"])
+        clusters.append(data[task_id]["mapping"])
+    return q_hat, clusters
 
 
 def clustered_prediction(
-    nonconformity_scores: Union[np.ndarray, List[np.ndarray]],
-    q_hat_data: Union[np.ndarray, List[np.ndarray]],
-) -> Union[np.ndarray, List[np.ndarray]]:
+    nonconformity_scores: np.ndarray | list[np.ndarray],
+    q_hat_data: np.ndarray | list[np.ndarray],
+) -> np.ndarray | list[np.ndarray]:
     """
     Computes prediction sets using class-cluster-specific thresholds.
     This is used for Clustered Class-Conditional Prediction (CCP).
@@ -129,7 +131,8 @@ def clustered_prediction(
     Args:
         nonconformity_scores (Union[np.ndarray, List[np.ndarray]]):
             Nonconformity scores for predictions.
-            - Shape (B, C) for single-task, where B is the batch size and C is the number of classes.
+            - Shape (B, C) for single-task, where B is the batch size
+              and C is the number of classes.
             - List of arrays for multi-task, each of shape (B, C_t).
 
         q_hat_data (Union[np.ndarray, List[np.ndarray]]):
@@ -141,13 +144,16 @@ def clustered_prediction(
     """
     if isinstance(nonconformity_scores, np.ndarray):
         q_hat, clusters = _extract_qhat_and_clusters(q_hat_data)
-        assert isinstance(q_hat, list), "Expected q_hat to be a list for single-task."
         assert isinstance(
-            clusters, list
-        ), "Expected clusters to be a list for single-task."
+            q_hat, np.ndarray
+        ), "Expected q_hat to be a np.ndarray for single-task."
+        assert isinstance(
+            clusters, np.ndarray
+        ), "Expected clusters to be a np.ndarray for single-task."
         assert nonconformity_scores.shape[1] == len(
             clusters
-        ), f"Mismatch between number of classes and cluster assignments. Scores length: {len(nonconformity_scores)}, Clusters length: {len(clusters)}"
+        ), f"Mismatch between number of classes and cluster assignments. Scores length: \
+            {len(nonconformity_scores)}, Clusters length: {len(clusters)}"
         clustered_qhat = np.array([q_hat[c] for c in clusters])
 
     elif isinstance(nonconformity_scores, list):
@@ -160,7 +166,9 @@ def clustered_prediction(
         ), "Expected clusters to be a list for multi-task input."
         assert (
             len(nonconformity_scores) == len(q_hat) == len(clusters)
-        ), f"Mismatch in length between scores, thresholds, and cluster assignments. Scores length: {len(nonconformity_scores)}, q_hat length: {len(q_hat)}, Clusters length: {len(clusters)}"
+        ), f"Mismatch in length between scores, thresholds, and cluster assignments. \
+                Scores length: {len(nonconformity_scores)}, q_hat length: {len(q_hat)}, \
+                Clusters length: {len(clusters)}"
         clustered_qhat = [
             np.array([q_hat[i][c] for c in clusters[i]])
             for i in range(len(nonconformity_scores))

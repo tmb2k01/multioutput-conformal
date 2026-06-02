@@ -1,10 +1,9 @@
-from typing import List, Tuple
 
 import numpy as np
 
 
 def quantile_embedding(
-    samples: np.ndarray, q: Tuple[float, ...] = (0.5, 0.6, 0.7, 0.8, 0.9)
+    samples: np.ndarray, q: tuple[float, ...] = (0.5, 0.6, 0.7, 0.8, 0.9)
 ) -> np.ndarray:
     """
     Compute the q-quantiles of the given samples.
@@ -22,14 +21,15 @@ def quantile_embedding(
 def embed_all_classes(
     scores_all: np.ndarray,
     labels: np.ndarray,
-    q: Tuple[float, ...] = (0.5, 0.6, 0.7, 0.8, 0.9),
-    return_cts=False,
-):
+    q: tuple[float, ...] = (0.5, 0.6, 0.7, 0.8, 0.9),
+    return_cts: bool = False,
+) -> np.ndarray | tuple[np.ndarray, np.ndarray]:
     """
     Compute class-wise quantile embeddings based on prediction scores.
 
     Args:
-        scores_all (np.ndarray): Ground truth prediction scores. Shape (B,) where B is the batch size.
+        scores_all (np.ndarray): Ground truth prediction scores.
+                                 Shape (B,) where B is the batch size.
         labels (np.ndarray): True class labels. Shape (B,).
         q (list): List of quantiles to compute.
         return_cts (bool): Whether to return per-class instance counts.
@@ -55,9 +55,9 @@ def embed_all_classes(
 def embed_all_tasks(
     scores_all: np.ndarray,
     labels: np.ndarray,
-    q: Tuple[float, ...] = (0.5, 0.6, 0.7, 0.8, 0.9),
-    return_cts=False,
-) -> List[np.ndarray]:
+    q: tuple[float, ...] = (0.5, 0.6, 0.7, 0.8, 0.9),
+    return_cts: bool = False,
+) -> list[np.ndarray]:
     """
     Compute task-wise and class-wise quantile embeddings from prediction scores.
 
@@ -69,7 +69,8 @@ def embed_all_tasks(
         return_cts (bool): Whether to return per-task instance counts. Default is False.
 
     Returns:
-        List[np.ndarray]: Task-wise class embeddings of shape (T, C, len(q)), where T is the number of tasks.
+        List[np.ndarray]: Task-wise class embeddings of shape (T, C, len(q)), 
+                          where T is the number of tasks.
         List[np.ndarray] (optional): Count of instances per class. Shape (T, C).
     """
     T = scores_all.shape[0]
@@ -91,7 +92,7 @@ def embed_all_tasks(
     return (embeddings, cts) if return_cts else embeddings
 
 
-def get_clustering_parameters(num_classes, n_totalcal):
+def get_clustering_parameters(num_classes: int, n_totalcal: int) -> tuple[int, int]:
     """
     Estimate suitable values for the number of clustering points and clusters
     for clustered conformal prediction based on calibration set size and

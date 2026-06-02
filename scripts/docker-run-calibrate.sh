@@ -1,0 +1,70 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+IMAGE_TAG="${IMAGE_TAG:-masters-thesis:latest}"
+CONTAINER_NAME="${CONTAINER_NAME:-masters-thesis-calibrate}"
+WANDB_KEY_FILE="${WANDB_KEY_FILE:-${PROJECT_ROOT}/.wandb_api_key}"
+DOCKER_RUN_ARGS="${DOCKER_RUN_ARGS:---shm-size=8g --ipc=host}"
+
+HOST_DATA_DIR="${1:-${PROJECT_ROOT}/data}"
+HOST_ARTIFACTS_DIR="${2:-${PROJECT_ROOT}/artifacts}"
+CONFIG="${3:-experiments/utkface/hinge/ll_ll_cal.yaml}"
+HOST_LOGS_DIR="${PROJECT_ROOT}/lightning_logs"
+HOST_WANDB_DIR="${PROJECT_ROOT}/wandb"
+
+mkdir -p "${HOST_DATA_DIR}" "${HOST_ARTIFACTS_DIR}" "${HOST_LOGS_DIR}" "${HOST_WANDB_DIR}"
+chown -R "$(id -u)":"$(id -g)" "${HOST_ARTIFACTS_DIR}" "${HOST_LOGS_DIR}" "${HOST_WANDB_DIR}" 2>/dev/null || true
+chmod -R u+rwX "${HOST_ARTIFACTS_DIR}" "${HOST_LOGS_DIR}" "${HOST_WANDB_DIR}" || true
+
+USER_FLAGS=()
+if [[ "${RUN_AS_HOST_UID:-1}" != "0" ]]; then
+  USER_FLAGS=(--user "$(id -u)":"$(id -g)")
+fi
+
+# Detect docker GPU runtime
+GPU_ARGS=()
+if docker info --format '{{json .Runtimes}}' 2>/dev/null | grep -qi '"nvidia"'; then
+  if command -v nvidia-smi >/dev/null 2>&1; then
+    GPU_ARGS=(--gpus all)
+  fi
+fi
+
+WANDB_ARGS=(
+  -e WANDB_MODE=online
+  -e WANDB_DIR=/app/wandb
+  -e WANDB_CACHE_DIR=/app/wandb/cache
+  -e WANDB_CONFIG_DIR=/app/wandb/config
+)
+if [[ -f "${WANDB_KEY_FILE}" ]]; then
+  WANDB_ARGS+=(-e "WANDB_API_KEY=$(<"${WANDB_KEY_FILE}")")
+  WANDB_ARGS+=(-v "${WANDB_KEY_FILE}:/app/.wandb_api_key:ro")
+else
+  echo "No W&B API key at ${WANDB_KEY_FILE}; W&B may prompt or fail."
+fi
+
+APP_ENVS=(
+  -e DATA_DIR=/app/data
+  -e ARTIFACTS_ROOT=/app/artifacts
+)
+
+echo "Running calibration from image '${IMAGE_TAG}' (container: ${CONTAINER_NAME})"
+echo "Host data dir     : ${HOST_DATA_DIR}"
+echo "Host artifacts dir: ${HOST_ARTIFACTS_DIR}"
+echo "Config            : ${CONFIG}"
+echo "GPU args: ${GPU_ARGS[*]:-(none)}"
+
+docker run --rm \
+  --name "${CONTAINER_NAME}" \
+  "${GPU_ARGS[@]}" \
+  ${DOCKER_RUN_ARGS} \
+  "${USER_FLAGS[@]}" \
+  "${WANDB_ARGS[@]}" \
+  "${APP_ENVS[@]}" \
+  -v "${HOST_DATA_DIR}:/app/data:ro" \
+  -v "${HOST_ARTIFACTS_DIR}:/app/artifacts:rw" \
+  -v "${PROJECT_ROOT}/static:/app/static:ro" \
+  -v "${HOST_LOGS_DIR}:/app/lightning_logs:rw" \
+  -v "${HOST_WANDB_DIR}:/app/wandb:rw" \
+  "${IMAGE_TAG}" \
+  calibrate "${CONFIG}"

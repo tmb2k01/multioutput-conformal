@@ -1,3 +1,4 @@
+import argparse
 import os
 import shutil
 
@@ -7,8 +8,8 @@ data_dir = "data/SGVehicle"
 dataset_dir = os.path.join(data_dir, "Gen_img")
 
 
-def save_split_data(X_split, y_split, split_name):
-    for filename, labels in zip(X_split, y_split):
+def save_split_data(X_split: list[str], y_split: list[tuple[str, str]], split_name: str) -> None:
+    for filename, labels in zip(X_split, y_split, strict=True):
         src_path = os.path.join(dataset_dir, filename)
         dest_path = os.path.join(data_dir, split_name, "images", filename)
         os.makedirs(os.path.dirname(dest_path), exist_ok=True)
@@ -20,8 +21,8 @@ def save_split_data(X_split, y_split, split_name):
             f.write(f"{labels[0]} {labels[1]}")
 
 
-def prepare_dataset():
-    file_paths = [filename for filename in os.listdir(dataset_dir)]
+def prepare_dataset(experiment: bool) -> None:
+    file_paths = list(os.listdir(dataset_dir))
     color_labels = []
     type_labels = []
     filtered_files = []
@@ -37,31 +38,55 @@ def prepare_dataset():
             print(f"Skipping invalid filename: {filename}")
 
     X = filtered_files
-    y = list(zip(color_labels, type_labels))
+    y = list(zip(color_labels, type_labels, strict=False))
     X_train, X_temp, y_train, y_temp = train_test_split(
-        X, y, test_size=0.4, random_state=42
+        X, y, test_size=0.4, random_state=42, stratify=[f"{c}_{t}" for c, t in y]
     )  # 60% train, 40% temp
     X_val, X_test_cal, y_val, y_test_cal = train_test_split(
-        X_temp, y_temp, test_size=0.75, random_state=42
+        X_temp, y_temp, test_size=0.75, random_state=42, stratify=[f"{c}_{t}" for c, t in y_temp]
     )  # 10% val, 30% test+calib
-    X_test, X_calib, y_test, y_calib = train_test_split(
-        X_test_cal, y_test_cal, test_size=0.5, random_state=42
-    )  # 15% test, 15% calib
 
-    for split in ["train", "valid", "test", "calib"]:
+    for split in ["train", "valid"]:
         os.makedirs(os.path.join(data_dir, split, "images"), exist_ok=True)
         os.makedirs(os.path.join(data_dir, split, "labels"), exist_ok=True)
 
     save_split_data(X_train, y_train, "train")
     save_split_data(X_val, y_val, "valid")
-    save_split_data(X_test, y_test, "test")
-    save_split_data(X_calib, y_calib, "calib")
+
+    if experiment:
+        for i in range(5):
+            X_test, X_calib, y_test, y_calib = train_test_split(
+                X_test_cal, y_test_cal, test_size=0.5, random_state=i, 
+                stratify=[f"{c}_{t}" for c, t in y_test_cal]
+            )
+
+            for split in [f"test_{i}", f"calib_{i}"]:
+                os.makedirs(os.path.join(data_dir, split, "images"), exist_ok=True)
+                os.makedirs(os.path.join(data_dir, split, "labels"), exist_ok=True)
+            save_split_data(X_test, y_test, f"test_{i}")
+            save_split_data(X_calib, y_calib, f"calib_{i}")
+
+    else:
+        X_test, X_calib, y_test, y_calib = train_test_split(
+            X_test_cal, y_test_cal, test_size=0.5, random_state=42, 
+            stratify=[f"{c}_{t}" for c, t in y_test_cal]
+        )
+        for split in ["test", "calib"]:
+            os.makedirs(os.path.join(data_dir, split, "images"), exist_ok=True)
+            os.makedirs(os.path.join(data_dir, split, "labels"), exist_ok=True)
+        save_split_data(X_test, y_test, "test")
+        save_split_data(X_calib, y_calib, "calib")
+
     shutil.rmtree(dataset_dir)
 
 
-def main():
-    prepare_dataset()
+def main(args: argparse.Namespace) -> None:
+    experiment = args.experiment
+    prepare_dataset(experiment)
 
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--experiment", action="store_true")
+    args = parser.parse_args()
+    main(args)

@@ -1,18 +1,17 @@
-from typing import Dict, List, Union
 
 import numpy as np
 
-from src.calibration.calibration_utils import (
+from calibration.calibration_utils import (
     CALIBRATION_FN_HIGH_DIC,
     CALIBRATION_FN_LOW_DIC,
 )
-from src.calibration.nonconformity_functions import NONCONFORMITY_FN_DIC
+from calibration.nonconformity_functions import NONCONFORMITY_FN_DIC
 
 
 def compute_gt_nonconformity(
-    scores: Union[List[np.ndarray], np.ndarray],
+    scores: list[np.ndarray] | np.ndarray,
     labels: np.ndarray,
-) -> Dict[str, Union[np.ndarray, List[np.ndarray]]]:
+) -> dict[str, np.ndarray | list[np.ndarray]]:
     """
     Compute nonconformity scores for the given scores, then return only the ground truth scores.
     Args:
@@ -34,7 +33,7 @@ def compute_gt_nonconformity(
         if isinstance(scores, list):
             # Multi-task: iterate per task
             taskwise = []
-            for task_score, task_label in zip(scores, labels):
+            for task_score, task_label in zip(scores, labels, strict=False):
                 full_scores = fn(task_score)  # (B, C_t)
                 gt_scores = full_scores[
                     np.arange(task_score.shape[0]), task_label
@@ -51,12 +50,12 @@ def compute_gt_nonconformity(
 
 
 def calibration(
-    scores: Union[List[np.ndarray], np.ndarray],
+    scores: list[np.ndarray] | np.ndarray,
     true_labels: np.ndarray,
     high_level: bool = True,
     alpha: float = 0.05,
-    **kwargs
-) -> Dict[str, Dict[str, np.ndarray]]:
+    **kwargs: dict
+) -> dict[str, dict[str, np.ndarray]]:
     """
     Perform conformal calibration using various nonconformity and calibration methods.
 
@@ -67,8 +66,8 @@ def calibration(
         true_labels (np.ndarray): True class labels. Shape (B,) or (T, B).
         high_level (bool): If True, use high-level calibration functions.
         alpha (float): Desired miscoverage level (e.g., 0.05 for 95% coverage).
-        **kwargs (dict): Additional keyword arguments to be passed to individual calibration functions,
-                         e.g., clusters, cluster_method, etc.
+        **kwargs (dict): Additional keyword arguments to be passed to individual calibration 
+                         functions, e.g., clusters, cluster_method, etc.
 
     Returns:
         dict[str, dict]: A nested dictionary of q-hat values with structure:
@@ -87,7 +86,7 @@ def calibration(
         if high_level
         else CALIBRATION_FN_LOW_DIC.items()
     ):
-        for nonconformity_name in NONCONFORMITY_FN_DIC.keys():
+        for nonconformity_name in NONCONFORMITY_FN_DIC:
             if nonconformity_name not in q_hats:
                 q_hats[nonconformity_name] = {}
 

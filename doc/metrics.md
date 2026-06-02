@@ -17,13 +17,17 @@ This document describes the various metrics used to evaluate the performance of 
 
 ## Conformal Prediction Metrics
 
-### Coverage
-- Measures the proportion of prediction sets that contain the true label
-- Should be close to the desired coverage level (1 - α)
+### Coverage Gap (CovGap)
+- The reported coverage metric is the **coverage gap**: the deviation of the
+  empirical class-conditional coverage from the target level (1 - α).
+- First, the class-conditional coverage `ĉ_y` is computed per class
+  (`compute_classwise_coverage`): the fraction of samples of class `y` whose
+  prediction set contains `y`.
+- CovGap is then `100 · mean_y |ĉ_y − (1 − α)|`; **lower is better** (0 means the
+  per-class coverage matches the target exactly).
 - Can be computed:
-  - Per task (taskwise coverage)
-  - Across all tasks (overall coverage)
-- Higher coverage indicates better reliability of the prediction sets
+  - Per task (`compute_taskwise_covgap`)
+  - For the joint/low-level label space (`compute_covgap`)
 
 ### Efficiency
 - Measures the average size of the prediction sets

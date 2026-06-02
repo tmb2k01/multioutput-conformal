@@ -1,5 +1,6 @@
 {
   "SGVehicle": {
+    "alpha": 0.05,
     "tasks": [
       {
         "name": "Color",
@@ -35,16 +36,13 @@
         ]
       }
     ],
-    "weights": {
-      "low": "${MODELS_DIR}/sgvehicle-low-level-model.ckpt",
-      "high": "${MODELS_DIR}/sgvehicle-high-level-model.ckpt"
-    },
-    "thresholds": {
-      "low": "${MODELS_DIR}/sgvehicle-low-level-calibration.json",
-      "high": "${MODELS_DIR}/sgvehicle-high-level-calibration.json"
+    "artifacts": {
+      "low": "SGVehicle/ll_model",
+      "high": "SGVehicle/hl_model"
     }
   },
   "UTKFace": {
+    "alpha": 0.05,
     "tasks": [
       {
         "name": "Gender",
@@ -64,13 +62,9 @@
         ]
       }
     ],
-    "weights": {
-      "low": "${MODELS_DIR}/utkface-low-level-model.ckpt",
-      "high": "${MODELS_DIR}/utkface-high-level-model.ckpt"
-    },
-    "thresholds": {
-      "low": "${MODELS_DIR}/utkface-low-level-calibration.json",
-      "high": "${MODELS_DIR}/utkface-high-level-calibration.json"
+    "artifacts": {
+      "low": "UTKFace/ll_model",
+      "high": "UTKFace/hl_model"
     }
   }
 }
