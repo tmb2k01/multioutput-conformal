@@ -3,7 +3,6 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
 
 import numpy as np
 import pytorch_lightning as pl
@@ -378,7 +377,9 @@ class ConformalPredictor:
     # -----------------------------
     # inference
     # -----------------------------
-    def predict(self, data_loader: torch.utils.data.DataLoader) -> Any:
+    def predict(
+        self, data_loader: torch.utils.data.DataLoader
+    ) -> list[np.ndarray] | list[list[np.ndarray]]:
         """Compute prediction sets using init-time CP configuration."""
         device = (
             torch.device("cuda" if torch.cuda.is_available() else "cpu")

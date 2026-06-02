@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Any
 
 import numpy as np
 
@@ -131,7 +130,11 @@ class BaseCalibrator(ABC):
         raise NotImplementedError
 
     def fit(
-        self, model_outputs: Any, labels: np.ndarray, alpha: float, **kwargs: dict
+        self,
+        model_outputs: list[np.ndarray] | np.ndarray,
+        labels: np.ndarray,
+        alpha: float,
+        **kwargs: dict,
     ) -> ThresholdBundle:
         alpha = _round_alpha(alpha)
 
@@ -162,7 +165,9 @@ class BaseCalibrator(ABC):
         self._save_thresholds(bundle)
         return bundle
 
-    def predict(self, batch_outputs: Any) -> list[np.ndarray] | list[list[np.ndarray]]:
+    def predict(
+        self, batch_outputs: list[np.ndarray] | np.ndarray
+    ) -> list[np.ndarray] | list[list[np.ndarray]]:
         if self.thresholds is None:
             raise CalibratorStateError(
                 "Thresholds are not available. Call fit(...) or load_thresholds(...)."
@@ -194,7 +199,7 @@ class BaseCalibrator(ABC):
 
     @abstractmethod
     def get_prediction_scores(
-        self, batch_outputs: Any
+        self, batch_outputs: list[np.ndarray] | np.ndarray
     ) -> list[np.ndarray] | np.ndarray:
         raise NotImplementedError
 
@@ -249,7 +254,7 @@ class HighLevelCalibrator(BaseCalibrator):
 
     level = "high"
 
-    def get_prediction_scores(self, batch_outputs):
+    def get_prediction_scores(self, batch_outputs: list[np.ndarray]) -> list[np.ndarray]:
         scores = self.nonconformityFn(batch_outputs)
         return [np.asarray(task_scores) for task_scores in scores]
 
@@ -287,7 +292,7 @@ class LowLevelCalibrator(BaseCalibrator):
 
     level = "low"
 
-    def get_prediction_scores(self, batch_outputs):
+    def get_prediction_scores(self, batch_outputs: np.ndarray) -> np.ndarray:
         return np.asarray(self.nonconformityFn(batch_outputs))
 
     def compute_gt_nonconformity(

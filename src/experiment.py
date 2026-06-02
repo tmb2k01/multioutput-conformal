@@ -8,10 +8,8 @@ import numpy as np
 import pandas as pd
 import yaml
 
-from data.datamodule import MultiOutputDataModule
-from core.calibrators import LowLevelCalibrator, HighLevelCalibrator
-from core.models import LowLevelModel, HighLevelModel
 from core.predictor import ConformalPredictor
+from data.datamodule import MultiOutputDataModule
 from src.metrics import (
     compute_covgap,
     compute_efficiency,
@@ -76,7 +74,7 @@ def _build_predictor(pred_cfg: dict[str, Any], task_num_classes: list[int]) -> C
 
 
 def _compute_high_level_metrics(
-    prediction,
+    prediction: list[list[np.ndarray]],
     y_trues: list[np.ndarray],
     task_num_classes: list[int],
     alpha: float,
@@ -93,9 +91,9 @@ def _compute_high_level_metrics(
 
 
 def _compute_low_level_metrics(
-    prediction,
-    y_trues,
-    task_num_classes,
+    prediction: list[np.ndarray],
+    y_trues: np.ndarray,
+    task_num_classes: list[int],
     alpha: float,
 ) -> dict[str, Any]:
     return {

@@ -3,7 +3,6 @@ from __future__ import annotations
 import math
 from abc import ABC, abstractmethod
 from collections.abc import Sequence
-from typing import Any
 
 import numpy as np
 import pytorch_lightning as pl
@@ -52,11 +51,11 @@ class BaseModel(pl.LightningModule, ABC):
     
     # ---- core forward API ----
     @abstractmethod
-    def forward_logits(self, x: torch.Tensor) -> Any:
+    def forward_logits(self, x: torch.Tensor) -> torch.Tensor | list[torch.Tensor]:
         """Return logits (either Tensor for low-level or List[Tensor] for high-level)."""
         raise NotImplementedError
 
-    def forward(self, x: torch.Tensor) -> Any:
+    def forward(self, x: torch.Tensor) -> torch.Tensor | list[torch.Tensor]:
         return self.forward_logits(x)
 
     # ---- training/validation hooks ----
@@ -68,12 +67,14 @@ class BaseModel(pl.LightningModule, ABC):
 
     # ---- test decoding hooks ----
     @abstractmethod
-    def _predict_proba_for_batch(self, x: torch.Tensor) -> Any:
+    def _predict_proba_for_batch(self, x: torch.Tensor) -> torch.Tensor | list[torch.Tensor]:
         """Return probabilities (softmax outputs), shape mirrors forward output type."""
         raise NotImplementedError
 
     @abstractmethod
-    def _decode_predictions_for_test(self, logits_or_proba: Any) -> list[np.ndarray]:
+    def _decode_predictions_for_test(
+        self, logits_or_proba: torch.Tensor | list[torch.Tensor]
+    ) -> list[np.ndarray]:
         """
         Convert model outputs into per-task predicted labels:
           - returns List[np.ndarray] length T, each shape (B,)
@@ -96,7 +97,7 @@ class BaseModel(pl.LightningModule, ABC):
         batch: tuple[torch.Tensor, torch.Tensor],
         batch_idx: int,
         dataloader_idx: int = 0,
-    ) -> Any:
+    ) -> torch.Tensor | list[torch.Tensor]:
         x, _ = batch
         return self._predict_proba_for_batch(x)
 
@@ -256,7 +257,7 @@ class HighLevelModel(BaseModel):
 
     def _predict_proba_for_batch(self, x: torch.Tensor) -> list[torch.Tensor]:
         logits = self.forward_logits(x)
-        return [torch.softmax(l, dim=1) for l in logits]
+        return [torch.softmax(logit, dim=1) for logit in logits]
 
     def _shared_step(
         self,
@@ -292,7 +293,9 @@ class HighLevelModel(BaseModel):
 
         return total_loss
 
-    def _decode_predictions_for_test(self, logits_or_proba: Any) -> list[np.ndarray]:
+    def _decode_predictions_for_test(
+        self, logits_or_proba: torch.Tensor | list[torch.Tensor]
+    ) -> list[np.ndarray]:
         # expects list[Tensor] logits
         if not isinstance(logits_or_proba, (list, tuple)):
             raise TypeError("HighLevelModel expects list/tuple outputs.")
@@ -409,7 +412,9 @@ class LowLevelModel(BaseModel):
 
         return loss
 
-    def _decode_predictions_for_test(self, logits_or_proba: Any) -> list[np.ndarray]:
+    def _decode_predictions_for_test(
+        self, logits_or_proba: torch.Tensor | list[torch.Tensor]
+    ) -> list[np.ndarray]:
         # expects Tensor logits (B, num_classes)
         if not isinstance(logits_or_proba, torch.Tensor):
             raise TypeError("LowLevelModel expects Tensor outputs.")

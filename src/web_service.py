@@ -6,7 +6,8 @@ from pathlib import Path
 import gradio as gr
 import numpy as np
 import torch
-import torchvision.transforms as T
+from PIL import Image
+from torchvision import transforms
 
 from calibration.nonconformity_functions import NONCONFORMITY_FN_DIC
 from core.models import HighLevelModel, LowLevelModel
@@ -51,7 +52,7 @@ def get_task_num_classes(model_type: str) -> list[int]:
     return [len(task["classes"]) for task in CONFIG[model_type]["tasks"]]
 
 
-def load_model(level: str, model_type: str):
+def load_model(level: str, model_type: str) -> HighLevelModel | LowLevelModel:
     key = f"{level}_{model_type}"
     if key in model_cache:
         return model_cache[key]
@@ -68,7 +69,7 @@ def load_model(level: str, model_type: str):
     return model
 
 
-def load_thresholds(model_type: str, level: str, score_type: str):
+def load_thresholds(model_type: str, level: str, score_type: str) -> dict:
     t_raw = CONFIG[model_type]["thresholds"][level.lower()]
     threshold_path = _expand_path(t_raw)
     with open(threshold_path) as f:
@@ -127,7 +128,7 @@ def score_passed(score: str, threshold: str) -> bool:
 def generate_table_data(
     model_type: str,
     level: str = "HIGH",
-    scores=None,
+    scores: list[float] | None = None,
     cp_type: str = "scp_global",
     score_type: str = "hinge",
 ) -> list[list[str]]:
@@ -163,12 +164,18 @@ def generate_table_data(
     return rows
 
 
-def predict(image, level, model_type, nonconformity_type, cp_type):
+def predict(
+    image: Image.Image,
+    level: str,
+    model_type: str,
+    nonconformity_type: str,
+    cp_type: str,
+) -> list[list[str]]:
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model = load_model(level, model_type).to(device)
 
     nonconformity_type = nonconformity_type.lower()
-    transform = T.Compose([T.ToTensor()])
+    transform = transforms.Compose([transforms.ToTensor()])
     image_tensor = transform(image).unsqueeze(0).to(device)
 
     with torch.no_grad():
@@ -239,13 +246,15 @@ def launch() -> None:
             elem_classes="no-select",
         )
 
-        def update_cp_choices(lvl):
+        def update_cp_choices(lvl: str) -> dict:
             choices = LOW_CP_TYPES if lvl == "LOW" else HIGH_CP_TYPES
             return gr.update(choices=choices, value=choices[0])
 
         model_level.change(update_cp_choices, model_level, cp_type)
 
-        def update_table(level, model_type, cp_type, nonconformity):
+        def update_table(
+            level: str, model_type: str, cp_type: str, nonconformity: str
+        ) -> dict:
             internal_cp_type = CP_TYPE_MAPPING.get(cp_type, "scp_global")
             score_type = nonconformity.lower()
             new_headers = (
