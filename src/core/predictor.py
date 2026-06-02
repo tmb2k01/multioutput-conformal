@@ -184,6 +184,34 @@ class ConformalPredictor:
     # -----------------------------
     # sklearn-like interface
     # -----------------------------
+    def train(
+        self,
+        data_module: MultiOutputDataModule,
+        max_epochs: int = 30,
+    ) -> ConformalPredictor:
+        """Train the model only and save its checkpoint under ``artifacts_dir``."""
+        self._prepare_artifact_dir()
+        self._train_model(data_module=data_module, max_epochs=max_epochs)
+        return self
+
+    def calibrate(
+        self,
+        data_module: MultiOutputDataModule,
+        alpha: float = 0.05,
+        calibration_clusters: str | int = "auto",
+    ) -> ConformalPredictor:
+        """Calibrate the current model only and save thresholds under ``artifacts_dir``.
+
+        Expects a trained model (e.g. loaded via :meth:`load` from ``artifacts_dir``).
+        """
+        self._prepare_artifact_dir()
+        self._fit_calibrator(
+            data_module=data_module,
+            alpha=alpha,
+            calibration_clusters=calibration_clusters,
+        )
+        return self
+
     def fit(
         self,
         data_module: MultiOutputDataModule,
@@ -193,21 +221,11 @@ class ConformalPredictor:
         train_model: bool = True,
         calibrate_model: bool = True,
     ) -> ConformalPredictor:
-        """Train (optional) and calibrate; mirrors train.py."""
-        if train_model and calibrate_model:
-            self._train_and_calibrate(
-                data_module=data_module,
-                alpha=alpha,
-                calibration_clusters=calibration_clusters,
-                max_epochs=max_epochs,
-            )
-        elif train_model:
-            self._train(
-                data_module=data_module,
-                max_epochs=max_epochs,
-            )
-        elif calibrate_model:
-            self._calibrate(
+        """Convenience wrapper to train and/or calibrate in one call."""
+        if train_model:
+            self.train(data_module=data_module, max_epochs=max_epochs)
+        if calibrate_model:
+            self.calibrate(
                 data_module=data_module,
                 alpha=alpha,
                 calibration_clusters=calibration_clusters,
@@ -322,57 +340,6 @@ class ConformalPredictor:
             n_clusters=calibration_clusters,
         )
 
-
-    # -----------------------------
-    # workflow methods
-    # -----------------------------
-
-    def _calibrate(
-        self,
-        data_module: MultiOutputDataModule,
-        alpha: float,
-        calibration_clusters: str | int,
-    ) -> None:
-        """Calibrate only (no model training)."""
-        self._prepare_artifact_dir()
-        self._fit_calibrator(
-            data_module=data_module,
-            alpha=alpha,
-            calibration_clusters=calibration_clusters,
-        )
-
-
-    def _train(
-        self,
-        data_module: MultiOutputDataModule,
-        max_epochs: int,
-    ) -> None:
-        """Train only."""
-        self._prepare_artifact_dir()
-        self._train_model(
-            data_module=data_module,
-            max_epochs=max_epochs,
-        )
-
-
-    def _train_and_calibrate(
-        self,
-        data_module: MultiOutputDataModule,
-        alpha: float,
-        calibration_clusters: str | int,
-        max_epochs: int,
-    ) -> None:
-        """Train and then calibrate."""
-        self._prepare_artifact_dir()
-        self._train_model(
-            data_module=data_module,
-            max_epochs=max_epochs,
-        )
-        self._fit_calibrator(
-            data_module=data_module,
-            alpha=alpha,
-            calibration_clusters=calibration_clusters,
-        )
 
     # -----------------------------
     # inference

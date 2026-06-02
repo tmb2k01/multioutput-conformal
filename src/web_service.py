@@ -7,206 +7,168 @@ import gradio as gr
 import numpy as np
 import torch
 from PIL import Image
-from torchvision import transforms
+from torch.utils.data import DataLoader, Dataset
+from torchvision.transforms import Resize
+from torchvision.transforms.functional import to_tensor
 
-from calibration.nonconformity_functions import NONCONFORMITY_FN_DIC
-from core.models import HighLevelModel, LowLevelModel
-
-#TODO: refactor to use the new structure of code
-
-# ---------- helpers ----------
-def _expand_path(p: str) -> str:
-    """Expand ${VARS} and ~ in paths."""
-    return os.path.expanduser(os.path.expandvars(p))
-
+from core.calibrators import (
+    BaseCalibrator,
+    HighLevelCalibrator,
+    LowLevelCalibrator,
+)
+from core.models import BaseModel, HighLevelModel, LowLevelModel
+from core.predictor import ConformalPredictor
+from core.utils import expand_path
 
 # ---------- config ----------
-CONFIG_PATH = Path("./static/ws-config.json")
-CONFIG = json.loads(CONFIG_PATH.read_text(encoding="utf-8"))
+DEFAULT_CONFIG_PATH = Path("./static/ws-config.json")
+CONFIG = json.loads(DEFAULT_CONFIG_PATH.read_text(encoding="utf-8"))
 
+ARTIFACTS_ROOT = os.environ.get("ARTIFACTS_ROOT", "./artifacts/artifacts")
+
+# Friendly CP names -> calibration_fn_key used by the calibrators / threshold files.
+CP_TYPE_MAPPING = {
+    "Standard CP - Global Threshold": "scp_global_threshold",
+    "Standard CP - Taskwise Threshold": "scp_task_thresholds",
+    "Classwise CP": "ccp_class_thresholds",
+    "Clustered CP - Global Clusters": "ccp_global_cluster_thresholds",
+    "Clustered CP - Taskwise Clusters": "ccp_task_cluster_thresholds",
+}
 LOW_CP_TYPES = [
     "Standard CP - Global Threshold",
     "Classwise CP",
     "Clustered CP - Global Clusters",
 ]
-HIGH_CP_TYPES = [
-    "Standard CP - Global Threshold",
-    "Standard CP - Taskwise Threshold",
-    "Classwise CP",
-    "Clustered CP - Global Clusters",
-    "Clustered CP - Taskwise Clusters",
-]
+HIGH_CP_TYPES = list(CP_TYPE_MAPPING.keys())
 
-CP_TYPE_MAPPING = {
-    "Standard CP - Global Threshold": "scp_global",
-    "Standard CP - Taskwise Threshold": "scp_task",
-    "Classwise CP": "ccp_class",
-    "Clustered CP - Global Clusters": "ccp_global_cluster",
-    "Clustered CP - Taskwise Clusters": "ccp_task_cluster",
-}
+# Image preprocessing mirrors data.datamodule (to_tensor + Resize((256, 256))).
+_RESIZE = Resize((256, 256))
 
-model_cache = {}
+# Cache loaded predictors keyed by configuration.
+_predictor_cache: dict[tuple[str, str, str, str, float], ConformalPredictor] = {}
 
 
 def get_task_num_classes(model_type: str) -> list[int]:
     return [len(task["classes"]) for task in CONFIG[model_type]["tasks"]]
 
 
-def load_model(level: str, model_type: str) -> HighLevelModel | LowLevelModel:
-    key = f"{level}_{model_type}"
-    if key in model_cache:
-        return model_cache[key]
+class _SingleImageDataset(Dataset):
+    """Wraps a single preprocessed image so it can flow through the predictor pipeline."""
 
-    num_classes = get_task_num_classes(model_type)
+    def __init__(self, image: Image.Image, n_tasks: int) -> None:
+        self.image = _RESIZE(to_tensor(image.convert("RGB")))
+        self.n_tasks = n_tasks
 
-    ckpt_raw = CONFIG[model_type]["weights"][level.lower()]
-    ckpt = _expand_path(ckpt_raw)
+    def __len__(self) -> int:
+        return 1
 
-    model_cls = HighLevelModel if level == "HIGH" else LowLevelModel
-    model = model_cls.load_from_checkpoint(ckpt, task_num_classes=num_classes)
-    model.eval()
-    model_cache[key] = model
-    return model
+    def __getitem__(self, idx: int) -> tuple[torch.Tensor, torch.Tensor]:
+        return self.image, torch.zeros(self.n_tasks, dtype=torch.long)
 
 
-def load_thresholds(model_type: str, level: str, score_type: str) -> dict:
-    t_raw = CONFIG[model_type]["thresholds"][level.lower()]
-    threshold_path = _expand_path(t_raw)
-    with open(threshold_path) as f:
-        all_thresholds = json.load(f)
-    return all_thresholds.get(score_type, {})
-
-
-def get_threshold_for_high_level(
-    cp_type: str, thresholds_data: dict, task_idx: int, class_idx: int, idx: int
-) -> str:
-    if cp_type == "scp_global":
-        return f"{thresholds_data['scp_global_threshold']:.5f}"
-    if cp_type == "scp_task":
-        return f"{thresholds_data['scp_task_thresholds'][task_idx]:.5f}"
-    if cp_type == "ccp_class":
-        return f"{thresholds_data['ccp_class_thresholds'][task_idx][class_idx]:.5f}"
-    if cp_type == "ccp_task_cluster":
-        cluster_id = thresholds_data["ccp_task_cluster_thresholds"][f"task-{task_idx}"][
-            "mapping"
-        ][class_idx]
-        qhat = thresholds_data["ccp_task_cluster_thresholds"][f"task-{task_idx}"][
-            "qhats"
-        ][cluster_id]
-        return f"{qhat:.5f}"
-    if cp_type == "ccp_global_cluster":
-        cluster_id = thresholds_data["ccp_global_cluster_thresholds"][
-            "class_to_cluster_mapping"
-        ][f"task-{task_idx}"][class_idx]
-        qhat = thresholds_data["ccp_global_cluster_thresholds"]["cluster_qhats"][
-            cluster_id
-        ]
-        return f"{qhat:.5f}"
-    return "-"
-
-
-def get_threshold_for_low_level(cp_type: str, thresholds_data: dict, idx: int) -> str:
-    if cp_type == "scp_global":
-        return f"{thresholds_data['scp_global_threshold']:.5f}"
-    if cp_type == "ccp_class":
-        return f"{thresholds_data['ccp_class_thresholds'][idx]:.5f}"
-    if cp_type == "ccp_global_cluster":
-        cluster_id = thresholds_data["ccp_global_cluster_thresholds"]["class_to_cluster_mapping"][
-            idx
-        ]
-        qhat = thresholds_data["ccp_global_cluster_thresholds"]["cluster_qhats"][cluster_id]
-        return f"{qhat:.5f}"
-    return "-"
-
-
-def score_passed(score: str, threshold: str) -> bool:
-    if score == "-" or threshold == "-":
-        return False
-    return float(score) <= float(threshold)
-
-
-def generate_table_data(
+def _build_predictor(
     model_type: str,
-    level: str = "HIGH",
-    scores: list[float] | None = None,
-    cp_type: str = "scp_global",
-    score_type: str = "hinge",
-) -> list[list[str]]:
-    if model_type not in CONFIG:
-        return []
+    level: str,
+    nonconformity_key: str,
+    cp_type: str,
+    alpha: float,
+) -> ConformalPredictor:
+    cache_key = (model_type, level, nonconformity_key, cp_type, alpha)
+    if cache_key in _predictor_cache:
+        return _predictor_cache[cache_key]
 
-    thresholds_data = load_thresholds(model_type, level, score_type)
-    tasks = CONFIG[model_type]["tasks"]
+    is_high = level == "HIGH"
+    artifacts_dir = expand_path(ARTIFACTS_ROOT) / CONFIG[model_type]["artifacts"][level.lower()]
 
-    rows = []
+    model_cls: type[BaseModel] = HighLevelModel if is_high else LowLevelModel
+    calibrator_cls: type[BaseCalibrator] = (
+        HighLevelCalibrator if is_high else LowLevelCalibrator
+    )
+
+    predictor = ConformalPredictor.load(
+        model_cls=model_cls,
+        calibrator_cls=calibrator_cls,
+        task_num_classes=get_task_num_classes(model_type),
+        alpha=alpha,
+        artifacts_dir=artifacts_dir,
+        nonconformity_key=nonconformity_key,
+        cp_type=cp_type,
+    )
+    _predictor_cache[cache_key] = predictor
+    return predictor
+
+
+def _included_per_task(
+    prediction: list[np.ndarray] | list[list[np.ndarray]], level: str
+) -> list[set[int]]:
+    """Reduce a single-sample prediction into per-task sets of included class indices."""
     if level == "HIGH":
-        idx = 0
-        for task_idx, task in enumerate(tasks):
-            rows.append([f"🔷 {task['name']}", "", "", ""])
-            for class_idx, cls in enumerate(task["classes"]):
-                score = f"{scores[idx]:.5f}" if scores is not None else "-"
-                threshold = get_threshold_for_high_level(
-                    cp_type, thresholds_data, task_idx, class_idx, idx
-                )
-                mark = "🟢" if score_passed(score, threshold) else ""
-                rows.append(["", f"{mark}{cls}", score, threshold])
-                idx += 1
+        return [set(np.asarray(task_pred[0]).tolist()) for task_pred in prediction]
+    return [set(np.asarray(prediction[0]).tolist())]
 
-    else:  # LOW level
+
+def _build_table(
+    model_type: str,
+    level: str,
+    prediction: list[np.ndarray] | list[list[np.ndarray]] | None = None,
+) -> list[list[str]]:
+    tasks = CONFIG[model_type]["tasks"]
+    included = _included_per_task(prediction, level) if prediction is not None else None
+    rows: list[list[str]] = []
+
+    if level == "HIGH":
+        for task_idx, task in enumerate(tasks):
+            in_set = included[task_idx] if included is not None else set()
+            rows.append([f"🔷 {task['name']}", ""])
+            for class_idx, cls in enumerate(task["classes"]):
+                mark = "🟢 " if class_idx in in_set else ""
+                rows.append(["", f"{mark}{cls}"])
+    else:  # LOW level: joint classes over the cartesian product of task classes.
+        in_set = included[0] if included is not None else set()
         combined_classes = list(product(*[t["classes"] for t in tasks]))
         for i, combo in enumerate(combined_classes):
-            label = " | ".join(combo)
-            score = f"{scores[i]:.5f}" if scores is not None else "-"
-            threshold = get_threshold_for_low_level(cp_type, thresholds_data, i)
-            mark = "🟢" if score_passed(score, threshold) else ""
-            rows.append([f"{mark}{label}", score, threshold])
+            mark = "🟢 " if i in in_set else ""
+            rows.append([f"{mark}" + " | ".join(combo)])
 
     return rows
 
 
 def predict(
-    image: Image.Image,
+    image: Image.Image | None,
     level: str,
     model_type: str,
-    nonconformity_type: str,
+    nonconformity: str,
     cp_type: str,
 ) -> list[list[str]]:
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    model = load_model(level, model_type).to(device)
+    if image is None:
+        return _build_table(model_type, level)
 
-    nonconformity_type = nonconformity_type.lower()
-    transform = transforms.Compose([transforms.ToTensor()])
-    image_tensor = transform(image).unsqueeze(0).to(device)
+    nonconformity_key = nonconformity.lower()
+    internal_cp_type = CP_TYPE_MAPPING.get(cp_type, "scp_global_threshold")
+    alpha = float(CONFIG[model_type].get("alpha", 0.05))
 
-    with torch.no_grad():
-        outputs = model(image_tensor)
+    try:
+        predictor = _build_predictor(
+            model_type, level, nonconformity_key, internal_cp_type, alpha
+        )
+        loader = DataLoader(
+            _SingleImageDataset(image, len(get_task_num_classes(model_type))),
+            batch_size=1,
+        )
+        prediction = predictor.predict(loader)
+    except (FileNotFoundError, RuntimeError, ValueError) as e:
+        return [[f"Unavailable for this configuration: {e}"]]
 
-    if isinstance(outputs, (list, tuple)):
-        softmax_outputs = [out.softmax(dim=-1).cpu().numpy() for out in outputs]
-    else:
-        softmax_outputs = outputs.softmax(dim=-1).cpu().numpy()
-
-    nonconformity_fn = NONCONFORMITY_FN_DIC[nonconformity_type]
-    scores = nonconformity_fn(softmax_outputs)
-    scores = (
-        np.concatenate(scores, axis=1).flatten()
-        if isinstance(scores, list)
-        else scores.flatten()
-    )
-
-    internal_cp_type = CP_TYPE_MAPPING.get(cp_type, "scp_global")
-    return generate_table_data(
-        model_type,
-        level,
-        scores=scores.tolist(),
-        cp_type=internal_cp_type,
-        score_type=nonconformity_type,
-    )
+    return _build_table(model_type, level, prediction)
 
 
-def launch() -> None:
+def launch(config_path: str | Path = DEFAULT_CONFIG_PATH) -> None:
+    global CONFIG
+    CONFIG = json.loads(Path(config_path).read_text(encoding="utf-8"))
+    _predictor_cache.clear()
+
     default_model = next(iter(CONFIG))
-    column_names = ["Task", "Class", "Score", "Threshold"]
+    high_columns = ["Task", "Class"]
 
     with gr.Blocks(css_paths="./static/styles.css") as ui:
         gr.Markdown("# Multi-output Conformal Prediction")
@@ -239,8 +201,8 @@ def launch() -> None:
 
         gr.Markdown("# Prediction Results")
         table_output = gr.Dataframe(
-            headers=column_names,
-            value=generate_table_data(default_model),
+            headers=high_columns,
+            value=_build_table(default_model, "HIGH"),
             interactive=False,
             wrap=True,
             elem_classes="no-select",
@@ -252,25 +214,12 @@ def launch() -> None:
 
         model_level.change(update_cp_choices, model_level, cp_type)
 
-        def update_table(
-            level: str, model_type: str, cp_type: str, nonconformity: str
-        ) -> dict:
-            internal_cp_type = CP_TYPE_MAPPING.get(cp_type, "scp_global")
-            score_type = nonconformity.lower()
-            new_headers = (
-                ["Class", "Score", "Threshold"] if level == "LOW" else column_names
-            )
-            new_rows = generate_table_data(
-                model_type, level, cp_type=internal_cp_type, score_type=score_type
-            )
-            return gr.update(headers=new_headers, value=new_rows)
+        def update_table(level: str, model_type: str) -> dict:
+            headers = ["Class"] if level == "LOW" else high_columns
+            return gr.update(headers=headers, value=_build_table(model_type, level))
 
-        for widget in [model_level, model_type, cp_type, nonconformity]:
-            widget.change(
-                update_table,
-                [model_level, model_type, cp_type, nonconformity],
-                table_output,
-            )
+        for widget in [model_level, model_type]:
+            widget.change(update_table, [model_level, model_type], table_output)
 
         submit_btn.click(
             predict,

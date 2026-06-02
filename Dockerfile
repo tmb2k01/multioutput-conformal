@@ -59,15 +59,18 @@ RUN mkdir -p ${TORCH_HOME}/hub/checkpoints \
 COPY src ./src
 COPY static ./static
 COPY scripts ./scripts
+COPY experiments ./experiments
 COPY README.md ./README.md
 
-RUN mkdir -p /app/data /app/models /app/lightning_logs /app/wandb && \
+RUN mkdir -p /app/data /app/artifacts /app/lightning_logs /app/wandb && \
     chown -R ${NB_UID}:${NB_UID} /app
 
 USER ${NB_USER}
 
-ENV PYTHONPATH=/app
+# `src` is the import root (modules use top-level imports like `from core...`).
+ENV PYTHONPATH=/app/src \
+    ARTIFACTS_ROOT=/app/artifacts
 
 EXPOSE 7860
 
-ENTRYPOINT ["python", "-m", "src.main"]
+ENTRYPOINT ["python", "-m", "main"]

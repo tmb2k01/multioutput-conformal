@@ -3,7 +3,7 @@ set -euo pipefail
 
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 IMAGE_TAG="${IMAGE_TAG:-masters-thesis:latest}"
-CONTAINER_NAME="${CONTAINER_NAME:-masters-thesis-train}"
+CONTAINER_NAME="${CONTAINER_NAME:-masters-thesis-calibrate}"
 WANDB_KEY_FILE="${WANDB_KEY_FILE:-${PROJECT_ROOT}/.wandb_api_key}"
 DOCKER_RUN_ARGS="${DOCKER_RUN_ARGS:---shm-size=8g --ipc=host}"
 
@@ -48,7 +48,7 @@ APP_ENVS=(
   -e ARTIFACTS_ROOT=/app/artifacts
 )
 
-echo "Running training from image '${IMAGE_TAG}' (container: ${CONTAINER_NAME})"
+echo "Running calibration from image '${IMAGE_TAG}' (container: ${CONTAINER_NAME})"
 echo "Host data dir     : ${HOST_DATA_DIR}"
 echo "Host artifacts dir: ${HOST_ARTIFACTS_DIR}"
 echo "Config            : ${CONFIG}"
@@ -67,4 +67,4 @@ docker run --rm \
   -v "${HOST_LOGS_DIR}:/app/lightning_logs:rw" \
   -v "${HOST_WANDB_DIR}:/app/wandb:rw" \
   "${IMAGE_TAG}" \
-  train "${CONFIG}"
+  calibrate "${CONFIG}"

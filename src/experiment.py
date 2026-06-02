@@ -8,9 +8,11 @@ import numpy as np
 import pandas as pd
 import yaml
 
+from core.calibrators import BaseCalibrator, HighLevelCalibrator, LowLevelCalibrator
+from core.models import BaseModel, HighLevelModel, LowLevelModel
 from core.predictor import ConformalPredictor
 from data.datamodule import MultiOutputDataModule
-from src.metrics import (
+from metrics import (
     compute_covgap,
     compute_efficiency,
     compute_informativeness,
@@ -18,6 +20,15 @@ from src.metrics import (
     compute_taskwise_efficiency,
     compute_taskwise_informativeness,
 )
+
+MODEL_REGISTRY: dict[str, type[BaseModel]] = {
+    "HighLevelModel": HighLevelModel,
+    "LowLevelModel": LowLevelModel,
+}
+CALIBRATOR_REGISTRY: dict[str, type[BaseCalibrator]] = {
+    "HighLevelCalibrator": HighLevelCalibrator,
+    "LowLevelCalibrator": LowLevelCalibrator,
+}
 
 
 def deep_merge(base: dict, override: dict) -> dict:
@@ -50,7 +61,7 @@ def _validate_config(exp: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any
 
 
 def _build_data_module(
-    data_cfg: dict[str, Any], task_num_classes: list[int], iteration: int
+    data_cfg: dict[str, Any], task_num_classes: list[int], iteration: int | None
 ) -> MultiOutputDataModule:
     return MultiOutputDataModule(
         root_dir=data_cfg["data_root"],
@@ -63,8 +74,8 @@ def _build_data_module(
 
 def _build_predictor(pred_cfg: dict[str, Any], task_num_classes: list[int]) -> ConformalPredictor:
     return ConformalPredictor.load(
-        model_cls=globals()[pred_cfg["model_cls"]],
-        calibrator_cls=globals()[pred_cfg["calibrator_cls"]],
+        model_cls=MODEL_REGISTRY[pred_cfg["model_cls"]],
+        calibrator_cls=CALIBRATOR_REGISTRY[pred_cfg["calibrator_cls"]],
         task_num_classes=task_num_classes,
         alpha=pred_cfg["alpha"],
         artifacts_dir=pred_cfg["artifact_root"],
@@ -212,18 +223,20 @@ def run(exp: dict[str, Any]) -> dict[str, float]:
 
     return _summarize_low_level(exp["name"], all_metrics)
 
-def run_experiments(config_path: str) -> None:
+def _load_config(config_path: str) -> dict[str, Any]:
     with open(config_path) as f:
-        config = yaml.safe_load(f)
+        return yaml.safe_load(f)
 
+
+def _resolve_experiments(config: dict[str, Any]) -> list[dict[str, Any]]:
     defaults = config.get("defaults", {})
-    results_dir = config.get("results_dir", "./results")
-    experiments = config["experiments"]
+    return [deep_merge(defaults, exp) for exp in config["experiments"]]
 
-    resolved_experiments = [
-        deep_merge(defaults, exp)
-        for exp in experiments
-    ]
+
+def run_experiments(config_path: str) -> None:
+    config = _load_config(config_path)
+    results_dir = config.get("results_dir", "./results")
+    resolved_experiments = _resolve_experiments(config)
 
     name = config_path.split("/")[-1].replace(".yaml", "")
     os.makedirs(results_dir, exist_ok=True)
@@ -233,3 +246,35 @@ def run_experiments(config_path: str) -> None:
         index=False,
         float_format="%.4f",
     )
+
+
+def train_only(config_path: str) -> None:
+    """Train the model defined by a config (training is independent of the CP type)."""
+    exp = _resolve_experiments(_load_config(config_path))[0]
+    data_cfg, pred_cfg, task_num_classes, _ = _validate_config(exp)
+
+    dm = _build_data_module(data_cfg, task_num_classes, data_cfg.get("split_idx"))
+    predictor = ConformalPredictor.build(
+        model_cls=MODEL_REGISTRY[pred_cfg["model_cls"]],
+        calibrator_cls=CALIBRATOR_REGISTRY[pred_cfg["calibrator_cls"]],
+        task_num_classes=task_num_classes,
+        learning_rate=pred_cfg.get("learning_rate", 1e-3),
+        artifacts_dir=pred_cfg["artifact_root"],
+        nonconformity_key=pred_cfg["nonconformity_key"],
+        cp_type=pred_cfg.get("cp_type", "scp_global_threshold"),
+    )
+    predictor.train(dm, max_epochs=pred_cfg.get("max_epochs", 30))
+
+
+def calibrate_only(config_path: str) -> None:
+    """Calibrate using a model already trained under each experiment's artifacts dir."""
+    for exp in _resolve_experiments(_load_config(config_path)):
+        data_cfg, pred_cfg, task_num_classes, _ = _validate_config(exp)
+
+        dm = _build_data_module(data_cfg, task_num_classes, data_cfg.get("split_idx"))
+        predictor = _build_predictor(pred_cfg, task_num_classes)
+        predictor.calibrate(
+            dm,
+            alpha=pred_cfg["alpha"],
+            calibration_clusters=pred_cfg.get("calibration_clusters", "auto"),
+        )

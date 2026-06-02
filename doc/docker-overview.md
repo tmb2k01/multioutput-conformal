@@ -12,9 +12,10 @@ thesis.
 - Python 3.10, PyTorch, and the project dependencies are installed inside the
   image. The ResNet-50 weights used by the models are pre-fetched to speed up
   startup on first run.
-- The default entrypoint launches `python -m src.main`, which auto-detects whether
-  it should run the training CLI or start the Gradio-powered web UI, depending on
-  the passed command-line arguments.
+- The default entrypoint launches `python -m main` (with `PYTHONPATH=/app/src`),
+  which exposes subcommands for the different workflows:
+  `experiment`, `train`, `calibrate`, and `web_service`. The runtime scripts pass
+  the appropriate subcommand and its arguments.
 
 ## Data and Model Persistence
 
@@ -22,12 +23,15 @@ The container keeps its working tree in `/app`. The runtime scripts mount the ho
 directories below to make experiment artefacts persistent between runs:
 
 - `/app/data`: raw datasets and calibration splits (mounted read-only during
-  training).
-- `/app/models`: trained checkpoints and exported models (mounted read-only for
-  the web UI).
+  training and calibration).
+- `/app/artifacts`: trained checkpoints and calibration thresholds. Mounted
+  read-write for training/calibration and read-only for the web UI. The
+  `ARTIFACTS_ROOT` environment variable points the code here.
 - `/app/lightning_logs`: PyTorch Lightning logs from training and validation.
 - `/app/wandb`: Weights & Biases cache and run metadata (mounted when available).
 - `/app/static`: configuration files and web assets shipped with the repository.
+- `/app/experiments`: experiment/train/calibrate YAML configs shipped with the
+  repository.
 
 By default, the scripts map these paths to the matching folders in the project
 root, but you can override them by passing explicit paths as positional arguments.

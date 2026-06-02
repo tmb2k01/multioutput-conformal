@@ -25,7 +25,7 @@ For detailed information about specific components, refer to the following docum
 
 ### Without Docker
 
-- **Prerequisites:** Python 3.8+, `pip`, and Git.
+- **Prerequisites:** Python 3.12+, `pip`, and Git.
 - **Clone the repository:**
 
   ```bash
@@ -52,10 +52,13 @@ For detailed information about specific components, refer to the following docum
   bash scripts/prepare-data.sh
   ```
 
-- **Run training:**
+- **Run a workflow** (the CLI exposes one subcommand per task; run from `src/`,
+  i.e. with `PYTHONPATH=src`):
 
   ```bash
-  python3 -m src.main --train
+  python3 -m main experiment experiments/utkface/hinge/ll_ll_cal.yaml  # full run + metrics
+  python3 -m main train experiments/utkface/hinge/ll_ll_cal.yaml       # train model only
+  python3 -m main calibrate experiments/utkface/hinge/ll_ll_cal.yaml   # calibrate only
   ```
 
   Store your Weights & Biases API key in `.wandb_api_key` (or point the
@@ -64,11 +67,12 @@ For detailed information about specific components, refer to the following docum
 - **Serve the web interface:**
 
   ```bash
-  python3 -m src.main
+  python3 -m main web_service              # uses static/ws-config.json by default
+  python3 -m main web_service --config path/to/ws-config.json
   ```
 
-  The Gradio UI listens on `http://localhost:7860` by default; adjust behaviour via
-  `static/config.json`.
+  The Gradio UI listens on `http://localhost:7860` by default. Set `ARTIFACTS_ROOT`
+  to point at the directory holding the trained artifacts.
 
 ### With Docker
 
@@ -85,24 +89,26 @@ For detailed information about specific components, refer to the following docum
   scripts/docker-prepare-data.sh
   ```
 
-- **Launch training:**
+- **Launch training / calibration:**
 
   ```bash
-  scripts/docker-run-train.sh
+  scripts/docker-run-train.sh [HOST_DATA_DIR] [HOST_ARTIFACTS_DIR] [CONFIG]
+  scripts/docker-run-calibrate.sh [HOST_DATA_DIR] [HOST_ARTIFACTS_DIR] [CONFIG]
   ```
 
-  Override host directories or enable GPU support by exporting `DOCKER_RUN_ARGS`,
+  `CONFIG` defaults to `experiments/utkface/hinge/ll_ll_cal.yaml`. Override host
+  directories or enable GPU support by exporting `DOCKER_RUN_ARGS`,
   `RUN_AS_HOST_UID`, and the other environment variables documented in
   `doc/docker-workflows.md`.
 
 - **Start the web interface:**
 
   ```bash
-  scripts/docker-run-web.sh
+  scripts/docker-run-web.sh [HOST_ARTIFACTS_DIR]
   ```
 
-  Set `PORT=7860` (or any free port) to control the host binding. Models are read
-  from the mounted `models` directory.
+  Set `PORT=7860` (or any free port) to control the host binding. Artifacts are
+  read from the mounted `artifacts` directory (`ARTIFACTS_ROOT=/app/artifacts`).
 
 For detailed explanations of the container layout, volume mounts, and environment
 variables, consult the Docker documentation linked above.
@@ -110,10 +116,15 @@ variables, consult the Docker documentation linked above.
 ## Project Structure
 
 - `src/`: Source code for the implementation
-  - `calibration/`: Conformal prediction and calibration utilities
-  - `models/`: Model architectures and prediction logic
+  - `main.py`: CLI entrypoint (`experiment`, `train`, `calibrate`, `web_service`)
+  - `experiment.py`: Experiment, training, and calibration orchestration
+  - `metrics.py`: Conformal-prediction evaluation metrics
+  - `web_service.py`: Gradio web interface
+  - `core/`: Models, calibrators, the `ConformalPredictor`, and supporting types
+  - `calibration/`: Nonconformity scores, conformal prediction, and calibration utilities
   - `data/`: Dataset handling and preprocessing
-- `scripts/`: Data preparation and utility scripts
+- `experiments/`: Experiment/train/calibrate YAML configs
+- `scripts/`: Data preparation and Docker helper scripts
 - `notebooks/`: Jupyter notebooks for analysis and experiments
 - `doc/`: Detailed documentation
-- `static/`: Configuration files and web assets
+- `static/`: Configuration files and web assets (`ws-config.json`, `styles.css`)

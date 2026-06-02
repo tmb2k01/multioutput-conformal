@@ -7,8 +7,9 @@ CONTAINER_NAME="${CONTAINER_NAME:-masters-thesis-web}"
 PORT="${PORT:-80}"
 DOCKER_RUN_ARGS="${DOCKER_RUN_ARGS:---shm-size=2g --ipc=host}"
 
-HOST_MODELS_DIR="${1:-${PROJECT_ROOT}/models}"
-mkdir -p "${HOST_MODELS_DIR}"
+HOST_ARTIFACTS_DIR="${1:-${PROJECT_ROOT}/artifacts}"
+WS_CONFIG="${WS_CONFIG:-./static/ws-config.json}"
+mkdir -p "${HOST_ARTIFACTS_DIR}"
 
 # Detect docker GPU runtime
 GPU_ARGS=()
@@ -19,12 +20,11 @@ if docker info --format '{{json .Runtimes}}' 2>/dev/null | grep -qi '"nvidia"'; 
 fi
 
 APP_ENVS=(
-  -e DATA_DIR=/app/data
-  -e MODELS_DIR=/app/models
+  -e ARTIFACTS_ROOT=/app/artifacts
 )
 
 echo "Starting web service from image '${IMAGE_TAG}' (container: ${CONTAINER_NAME})"
-echo "Host models dir: ${HOST_MODELS_DIR}"
+echo "Host artifacts dir: ${HOST_ARTIFACTS_DIR}"
 echo "GPU args: ${GPU_ARGS[*]:-(none)}"
 
 docker run --rm \
@@ -33,6 +33,7 @@ docker run --rm \
   ${DOCKER_RUN_ARGS} \
   -p "${PORT}:7860" \
   "${APP_ENVS[@]}" \
-  -v "${HOST_MODELS_DIR}:/app/models:ro" \
+  -v "${HOST_ARTIFACTS_DIR}:/app/artifacts:ro" \
   -v "${PROJECT_ROOT}/static:/app/static:ro" \
-  "${IMAGE_TAG}"
+  "${IMAGE_TAG}" \
+  web_service --config "${WS_CONFIG}"

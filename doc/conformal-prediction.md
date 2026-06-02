@@ -113,11 +113,17 @@ def make_prediction(model, new_instance, thresholds, approach='global'):
 
 ## Nonconformity Scores
 
-The choice of nonconformity score function is crucial and depends on the model type:
+This project targets multi-output classification and implements three softmax-based
+nonconformity scores (see `src/calibration/nonconformity_functions.py`, selectable
+via the `nonconformity_key` config field):
 
-1. For regression: Absolute error or squared error
-2. For classification: Probability-based scores or distance-based scores
-3. For anomaly detection: Reconstruction error or density estimates
+1. **Hinge** (`hinge`): `1 − p_y`, i.e. one minus the predicted probability of the
+   class.
+2. **Margin** (`margin`): the highest competing class probability minus the
+   probability of the class.
+3. **PiP** (`pip`): Penalized Inverse Probability — the hinge score plus a penalty
+   based on the inverse-rank-weighted cumulative probabilities of the higher-ranked
+   classes.
 
 ## Important Considerations
 

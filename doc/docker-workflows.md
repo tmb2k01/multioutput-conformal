@@ -46,13 +46,18 @@ have Python dependencies installed locally.
 
 ## 3. Run Training Jobs
 
-Launch training with:
+Train a model (no calibration) with:
 
 ```bash
-scripts/docker-run-train.sh [HOST_DATA_DIR] [HOST_MODELS_DIR]
+scripts/docker-run-train.sh [HOST_DATA_DIR] [HOST_ARTIFACTS_DIR] [CONFIG]
 ```
 
-- `HOST_DATA_DIR` and `HOST_MODELS_DIR` default to `./data` and `./models`.
+- `HOST_DATA_DIR` and `HOST_ARTIFACTS_DIR` default to `./data` and `./artifacts`.
+- `CONFIG` is the YAML config (relative to the repo, baked into the image under
+  `/app/experiments`) and defaults to `experiments/utkface/hinge/ll_ll_cal.yaml`.
+- The script runs `python -m main train "${CONFIG}"` inside the container and
+  writes the checkpoint under the config's `artifact_root` (i.e. into
+  `/app/artifacts`, mounted read-write).
 - Additional directories (`./lightning_logs`, `./wandb`) are created as needed
   so checkpoints and logging artefacts stay on the host.
 - Set `RUN_AS_HOST_UID=0` if you prefer to leave files owned by the container
@@ -60,25 +65,40 @@ scripts/docker-run-train.sh [HOST_DATA_DIR] [HOST_MODELS_DIR]
   issues.
 - Store your Weights & Biases API key in `.wandb_api_key` or point
   `WANDB_KEY_FILE` at a custom path to automatically enable W&B tracking.
-- Append extra CLI options after `--` to forward arguments to `python -m src.main`.
 
 Example with GPU access and a custom data directory:
 
 ```bash
 RUN_AS_HOST_UID=1 DOCKER_RUN_ARGS="--shm-size=16g --ipc=host --gpus all" \
-  scripts/docker-run-train.sh /mnt/datasets/masters-thesis ./models
+  scripts/docker-run-train.sh /mnt/datasets/masters-thesis ./artifacts \
+  experiments/utkface/hinge/ll_ll_cal.yaml
 ```
 
-## 4. Serve the Web Interface
+## 4. Run Calibration Jobs
+
+Calibrate using a model already trained under its artifacts dir:
+
+```bash
+scripts/docker-run-calibrate.sh [HOST_DATA_DIR] [HOST_ARTIFACTS_DIR] [CONFIG]
+```
+
+- Arguments mirror the training script. It runs `python -m main calibrate
+  "${CONFIG}"`, loading the trained checkpoint from `/app/artifacts` and writing
+  one threshold file per `cp_type` listed in the config back into `/app/artifacts`.
+
+## 5. Serve the Web Interface
 
 Start the Gradio-based web UI on `http://localhost:7860`:
 
 ```bash
-PORT=7860 scripts/docker-run-web.sh [HOST_MODELS_DIR]
+PORT=7860 scripts/docker-run-web.sh [HOST_ARTIFACTS_DIR]
 ```
 
-- `HOST_MODELS_DIR` defaults to `./models` and is mounted read-only so the web
-  service can load trained checkpoints.
+- `HOST_ARTIFACTS_DIR` defaults to `./artifacts` and is mounted read-only at
+  `/app/artifacts` (via `ARTIFACTS_ROOT`) so the web service can load trained
+  checkpoints and thresholds.
+- Override the web service config with `WS_CONFIG` (defaults to
+  `./static/ws-config.json`); the script forwards it as `web_service --config`.
 - The script exposes port `7860` from the container but allows you to remap it by
   setting `PORT` (the value before the colon in `-p "${PORT}:7860"`).
 - GPU support is detected automatically; override by adding `--gpus all` to
