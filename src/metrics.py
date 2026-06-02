@@ -188,16 +188,32 @@ def compute_taskwise_covgap(
     Returns:
         float: CovGap values.
     """
-    taskwise_coverages = []
+    n_tasks = len(predictions)
+    n_samples = len(labels[0])
+    num_joint_classes = int(np.prod(task_num_classes))
 
-    for preds, lbls, C in zip(predictions, labels, task_num_classes, strict=False):
-        class_cov = compute_classwise_coverage(preds, lbls, C)
-        class_cov = np.asarray(class_cov)
+    joint_labels = np.ravel_multi_index(
+        tuple(labels[t] for t in range(n_tasks)),
+        dims=tuple(task_num_classes),
+    )
 
-        cov_gap = 100 * np.mean(np.abs(class_cov - (1 - alpha)))
-        taskwise_coverages.append(cov_gap)
+    covered = np.array([
+        all(labels[t][i] in predictions[t][i] for t in range(n_tasks))
+        for i in range(n_samples)
+    ])
 
-    return taskwise_coverages
+    class_gaps = []
+
+    for y in range(num_joint_classes):
+        idxs = np.where(joint_labels == y)[0]
+
+        if len(idxs) == 0:
+            continue
+
+        class_coverage = np.mean(covered[idxs])
+        class_gaps.append(abs(class_coverage - (1 - alpha)))
+
+    return 100 * float(np.mean(class_gaps))
 
 
 def compute_covgap(

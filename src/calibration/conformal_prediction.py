@@ -8,6 +8,10 @@ def _get_prediction_set(
     """
     Internal helper to compute prediction sets where each class is included if its nonconformity
     score is less than or equal to the corresponding threshold.
+    
+    Fallback:
+    If a prediction set would be empty, the class with the minimum nonconformity
+    score (best prediction) is returned instead.
 
     Args:
         nonconformity_scores (Union[np.ndarray, List[np.ndarray]]):
@@ -30,17 +34,29 @@ def _get_prediction_set(
     """
 
     def compute_task(
-        task_scores: np.ndarray, task_thresholds: float | np.ndarray
+        task_scores: np.ndarray,
+        task_thresholds: float | np.ndarray,
     ) -> list[np.ndarray]:
         task_scores = np.asarray(task_scores)
+
         if np.isscalar(task_thresholds):
             task_thresholds = np.full(task_scores.shape, task_thresholds)
         else:
             task_thresholds = np.broadcast_to(task_thresholds, task_scores.shape)
-        return [
-            np.where(row <= thresh)[0]
-            for row, thresh in zip(task_scores, task_thresholds, strict=False)
-        ]
+
+        prediction_sets = []
+
+        for row, thresh in zip(task_scores, task_thresholds, strict=False):
+            pred_set = np.where(row <= thresh)[0]
+
+            # Fallback: if empty, use argmin(nonconformity score)
+            if pred_set.size == 0:
+                pred_set = np.array([np.argmin(row)])
+
+            prediction_sets.append(pred_set)
+
+        return prediction_sets
+
 
     if isinstance(nonconformity_scores, np.ndarray):
         return compute_task(nonconformity_scores, thresholds)
