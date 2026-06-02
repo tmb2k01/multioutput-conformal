@@ -21,7 +21,8 @@ from core.predictor import ConformalPredictor
 from core.utils import expand_path
 
 # ---------- config ----------
-DEFAULT_CONFIG_PATH = Path("./static/ws-config.json")
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+DEFAULT_CONFIG_PATH = PROJECT_ROOT / "static" / "ws-config.json"
 CONFIG = json.loads(DEFAULT_CONFIG_PATH.read_text(encoding="utf-8"))
 
 ARTIFACTS_ROOT = os.environ.get("ARTIFACTS_ROOT", "./artifacts/artifacts")
@@ -170,7 +171,7 @@ def launch(config_path: str | Path = DEFAULT_CONFIG_PATH) -> None:
     default_model = next(iter(CONFIG))
     high_columns = ["Task", "Class"]
 
-    with gr.Blocks(css_paths="./static/styles.css") as ui:
+    with gr.Blocks(css_paths=PROJECT_ROOT / "static" / "styles.css") as ui:
         gr.Markdown("# Multi-output Conformal Prediction")
 
         with gr.Row():
