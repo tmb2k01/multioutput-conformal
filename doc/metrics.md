@@ -26,7 +26,8 @@ This document describes the various metrics used to evaluate the performance of 
 - CovGap is then `100 · mean_y |ĉ_y − (1 − α)|`; **lower is better** (0 means the
   per-class coverage matches the target exactly).
 - Can be computed:
-  - Per task (`compute_taskwise_covgap`)
+  - Independently per task (`compute_taskwise_covgap`)
+  - Across joint classes formed from all tasks (`compute_joint_classwise_covgap`)
   - For the joint/low-level label space (`compute_covgap`)
 
 ### Efficiency

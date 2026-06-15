@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import copy
 import os
+from pathlib import Path
 from typing import Any
 
 import numpy as np
@@ -16,6 +17,7 @@ from metrics import (
     compute_covgap,
     compute_efficiency,
     compute_informativeness,
+    compute_joint_classwise_covgap,
     compute_taskwise_covgap,
     compute_taskwise_efficiency,
     compute_taskwise_informativeness,
@@ -93,10 +95,19 @@ def _compute_high_level_metrics(
     return {
         "efficiency": compute_efficiency(prediction),
         "informativeness": compute_informativeness(prediction),
-        "taskwise_efficiency": np.asarray(compute_taskwise_efficiency(prediction)),
-        "taskwise_informativeness": np.asarray(compute_taskwise_informativeness(prediction)),
-        "taskwise_covgap": np.asarray(
-            compute_taskwise_covgap(prediction, y_trues, task_num_classes, alpha)
+        "taskwise_efficiency": compute_taskwise_efficiency(prediction),
+        "taskwise_informativeness": compute_taskwise_informativeness(prediction),
+        "taskwise_covgap": compute_taskwise_covgap(
+            prediction,
+            y_trues,
+            task_num_classes,
+            alpha,
+        ),
+        "joint_classwise_covgap": compute_joint_classwise_covgap(
+            prediction,
+            y_trues,
+            task_num_classes,
+            alpha,
         ),
     }
 
@@ -117,7 +128,6 @@ def _summarize_high_level(
     experience_name: str,
     all_metrics: list[dict[str, Any]],
     n_tasks: int,
-    task_num_classes: list[int],
 ) -> dict[tuple[str, str], float | str]:
     overall_eff = np.array([m["efficiency"] for m in all_metrics])
     overall_info = np.array([m["informativeness"] for m in all_metrics])
@@ -125,9 +135,9 @@ def _summarize_high_level(
     taskwise_eff = np.array([m["taskwise_efficiency"] for m in all_metrics])
     taskwise_info = np.array([m["taskwise_informativeness"] for m in all_metrics])
     taskwise_covgap = np.array([m["taskwise_covgap"] for m in all_metrics])
-
-    class_weights = np.array(task_num_classes) / np.sum(task_num_classes)
-    overall_covgap = np.sum(taskwise_covgap * class_weights, axis=1)
+    joint_classwise_covgap = np.array(
+        [m["joint_classwise_covgap"] for m in all_metrics]
+    )
 
     results = {
         ("Experience", ""): experience_name,
@@ -138,8 +148,8 @@ def _summarize_high_level(
         ("Overall Inf", "mean"): float(np.mean(overall_info)),
         ("Overall Inf", "std"): float(np.std(overall_info)),
 
-        ("Overall CovGap", "mean"): float(np.mean(overall_covgap)),
-        ("Overall CovGap", "std"): float(np.std(overall_covgap)),
+        ("Joint Classwise CovGap", "mean"): float(np.mean(joint_classwise_covgap)),
+        ("Joint Classwise CovGap", "std"): float(np.std(joint_classwise_covgap)),
     }
 
     for i in range(n_tasks):
@@ -197,7 +207,10 @@ def run(exp: dict[str, Any]) -> dict[str, float]:
             alpha=pred_cfg["alpha"],
         )
 
-        prediction = predictor.predict(dm.test_dataloader())
+        prediction = predictor.predict(
+            dm.test_dataloader(),
+            cache_name=f"test_{iteration}",
+        )
         gt_labels = predictor.get_labels(dm.datasets["test"])
 
         if cal_level == "high":
@@ -219,7 +232,7 @@ def run(exp: dict[str, Any]) -> dict[str, float]:
         all_metrics.append(metrics)
 
     if cal_level == "high":
-        return _summarize_high_level(exp["name"], all_metrics, n_tasks, task_num_classes)
+        return _summarize_high_level(exp["name"], all_metrics, n_tasks)
 
     return _summarize_low_level(exp["name"], all_metrics)
 
@@ -246,6 +259,16 @@ def run_experiments(config_path: str) -> None:
         index=False,
         float_format="%.4f",
     )
+
+
+def run_experiment_directory(directory: str) -> None:
+    config_paths = sorted(Path(directory).rglob("*.yaml"))
+    if not config_paths:
+        raise ValueError(f"No experiment YAML files found under {directory}")
+
+    for index, config_path in enumerate(config_paths, start=1):
+        print(f"\n[{index}/{len(config_paths)}] Running {config_path}")
+        run_experiments(str(config_path))
 
 
 def train_only(config_path: str) -> None:

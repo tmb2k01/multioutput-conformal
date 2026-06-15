@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import os
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -19,7 +20,7 @@ from core.connector import (
 )
 from core.models import BaseModel
 from core.types import NonconformityKey
-from core.utils import expand_path
+from core.utils import convert_multitask_preds, expand_path, to_numpy
 from data.datamodule import MultiOutputDataModule
 
 
@@ -86,6 +87,7 @@ class ConformalPredictor:
 
     # runtime / IO
     artifacts_dir: Path = field(default_factory=lambda: Path("./artifacts"))
+    model_ckpt_path: Path | None = field(default=None, init=False, repr=False)
 
     def __post_init__(self) -> None:
         self.artifacts_dir = expand_path(self.artifacts_dir)
@@ -172,7 +174,7 @@ class ConformalPredictor:
                                     artifacts_dir=artifacts_dir,
                                     )
 
-        return ConformalPredictor(
+        predictor = ConformalPredictor(
             task_num_classes=list(task_num_classes),
             model=model,
             calibrator=calibrator,
@@ -180,6 +182,8 @@ class ConformalPredictor:
             nonconformity_key=nonconformity_key,
             cp_type=cp_type,
         )
+        predictor.model_ckpt_path = ckpt
+        return predictor
 
     # -----------------------------
     # sklearn-like interface
@@ -279,6 +283,120 @@ class ConformalPredictor:
     def _make_prediction_trainer(self) -> pl.Trainer:
         return pl.Trainer(logger=False)
 
+    def _model_output_cache_path(
+        self,
+        data_loader: torch.utils.data.DataLoader,
+        cache_name: str,
+    ) -> Path | None:
+        if self.model_ckpt_path is None or not self.model_ckpt_path.is_file():
+            return None
+
+        digest = hashlib.sha256()
+        checkpoint_stat = self.model_ckpt_path.stat()
+        digest.update(str(self.model_ckpt_path.resolve()).encode())
+        digest.update(f":{checkpoint_stat.st_size}:{checkpoint_stat.st_mtime_ns}".encode())
+        digest.update(self.model.__class__.__qualname__.encode())
+        digest.update(repr(self.task_num_classes).encode())
+
+        dataset = data_loader.dataset
+        digest.update(dataset.__class__.__qualname__.encode())
+        digest.update(str(len(dataset)).encode())
+        digest.update(repr(getattr(dataset, "transform", None)).encode())
+
+        samples = getattr(dataset, "samples", None)
+        if samples is None:
+            return None
+
+        # Dataset splits are immutable during an experiment. Hashing paths keeps
+        # split identity without issuing one filesystem stat call per image.
+        for image_path, _ in samples:
+            digest.update(os.path.abspath(image_path).encode())
+
+        cache_dir = self.artifacts_dir / "model_outputs"
+        return cache_dir / f"{cache_name}-{digest.hexdigest()[:20]}.npz"
+
+    def _load_model_output_cache(
+        self,
+        cache_path: Path,
+        expected_samples: int,
+    ) -> list[np.ndarray] | None:
+        if not cache_path.is_file():
+            return None
+
+        try:
+            with np.load(cache_path, allow_pickle=False) as cached:
+                output_keys = sorted(
+                    (key for key in cached.files if key.startswith("output_")),
+                    key=lambda key: int(key.removeprefix("output_")),
+                )
+                outputs = [cached[key].copy() for key in output_keys]
+        except (OSError, ValueError, KeyError):
+            return None
+
+        expected_outputs = len(self.task_num_classes) if self.model.level == "high" else 1
+        if (
+            len(outputs) != expected_outputs
+            or any(output.shape[0] != expected_samples for output in outputs)
+        ):
+            return None
+
+        print(f"Using cached model outputs: {cache_path}")
+        return outputs
+
+    def _save_model_output_cache(
+        self,
+        cache_path: Path,
+        outputs: list[np.ndarray],
+    ) -> None:
+        cache_path.parent.mkdir(parents=True, exist_ok=True)
+        np.savez(
+            cache_path,
+            **{
+                f"output_{index}": output
+                for index, output in enumerate(outputs)
+            },
+        )
+
+        print(f"Saved model outputs: {cache_path}")
+
+    def _run_model_prediction(
+        self,
+        data_loader: torch.utils.data.DataLoader,
+        trainer: pl.Trainer,
+    ) -> list[np.ndarray]:
+        predictions = trainer.predict(self.model, dataloaders=data_loader)
+        if self.model.level == "high":
+            return convert_multitask_preds(predictions)
+
+        return [
+            np.concatenate([to_numpy(batch) for batch in predictions], axis=0)
+        ]
+
+    def _get_model_outputs(
+        self,
+        data_loader: torch.utils.data.DataLoader,
+        trainer: pl.Trainer,
+        cache_name: str | None = None,
+    ) -> list[list[np.ndarray]] | list[np.ndarray]:
+        cache_path = (
+            self._model_output_cache_path(data_loader, cache_name)
+            if cache_name is not None
+            else None
+        )
+
+        if cache_path is None:
+            outputs = self._run_model_prediction(data_loader, trainer)
+        else:
+            outputs = self._load_model_output_cache(cache_path, len(data_loader.dataset))
+            if outputs is None:
+                print(f"Computing model outputs: {cache_path}")
+                outputs = self._run_model_prediction(data_loader, trainer)
+                self._save_model_output_cache(cache_path, outputs)
+
+        if self.model.level == "high":
+            return [outputs]
+        return outputs
+
 
     def _reload_best_model(self, ckpt_path: str) -> None:
         self.model_ckpt_path = Path(ckpt_path)
@@ -310,7 +428,15 @@ class ConformalPredictor:
 
         self.model.eval()
 
-        preds = trainer.predict(self.model, dataloaders=data_module.calib_dataloader())
+        preds = self._get_model_outputs(
+            data_module.calib_dataloader(),
+            trainer,
+            cache_name=(
+                f"calib_{data_module.iter}"
+                if data_module.iter is not None
+                else "calib"
+            ),
+        )
         preds = self.connector.pred_to_calib(preds)
 
         labels = self.get_labels(data_module.datasets["calib"])
@@ -345,7 +471,9 @@ class ConformalPredictor:
     # inference
     # -----------------------------
     def predict(
-        self, data_loader: torch.utils.data.DataLoader
+        self,
+        data_loader: torch.utils.data.DataLoader,
+        cache_name: str | None = None,
     ) -> list[np.ndarray] | list[list[np.ndarray]]:
         """Compute prediction sets using init-time CP configuration."""
         device = (
@@ -355,7 +483,7 @@ class ConformalPredictor:
         self.model.eval()
 
         trainer = self._make_prediction_trainer()
-        preds = trainer.predict(self.model, dataloaders=data_loader)
+        preds = self._get_model_outputs(data_loader, trainer, cache_name=cache_name)
 
         outputs = self.connector.pred_to_calib(preds)
         return self.calibrator.predict(outputs)

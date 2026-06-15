@@ -1,6 +1,11 @@
 import argparse
 
-from experiment import calibrate_only, run_experiments, train_only
+from experiment import (
+    calibrate_only,
+    run_experiment_directory,
+    run_experiments,
+    train_only,
+)
 from web_service import DEFAULT_CONFIG_PATH, launch
 
 
@@ -12,6 +17,12 @@ def _build_parser() -> argparse.ArgumentParser:
         "experiment", help="Run experiments defined in a YAML config."
     )
     experiment_parser.add_argument("config", help="Path to the experiment YAML file.")
+
+    directory_parser = subparsers.add_parser(
+        "experiment_directory",
+        help="Run every experiment YAML under a directory sequentially.",
+    )
+    directory_parser.add_argument("directory", help="Directory containing experiment YAMLs.")
 
     train_parser = subparsers.add_parser(
         "train", help="Train the model only (save the checkpoint under its artifacts dir)."
@@ -41,6 +52,8 @@ def main() -> None:
 
     if args.mode == "experiment":
         run_experiments(args.config)
+    elif args.mode == "experiment_directory":
+        run_experiment_directory(args.directory)
     elif args.mode == "train":
         train_only(args.config)
     elif args.mode == "calibrate":

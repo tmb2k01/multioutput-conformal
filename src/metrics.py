@@ -169,35 +169,65 @@ def compute_classwise_coverage(
     return np.array(coverages)
 
 
-def compute_taskwise_covgap(
+def compute_joint_classwise_covgap(
     predictions: list[list[np.ndarray]],
     labels: list[np.ndarray],
     task_num_classes: list[int],
     alpha: float,
-) -> list[float]:
+) -> float:
     """
-    Computes classes coverage gaps (CovGap).
+    Compute the mean coverage gap across observed joint classes.
 
     Args:
-        predictions (List[List[np.ndarray]]): List of tasks, each containing prediction 
-                                              sets per sample.
+        predictions (List[List[np.ndarray]]): Per-task prediction sets for each sample.
         labels (List[np.ndarray]): List of true label arrays for each task.
         task_num_classes (List[int]): Number of classes for each task.
         alpha (float): Significance level.
 
     Returns:
-        float: CovGap values.
+        float: Mean absolute coverage gap across observed joint classes, as a percentage.
     """
-    taskwise_coverages = []
+    n_tasks = len(predictions)
+    n_samples = len(labels[0])
 
-    for preds, lbls, C in zip(predictions, labels, task_num_classes, strict=False):
-        class_cov = compute_classwise_coverage(preds, lbls, C)
-        class_cov = np.asarray(class_cov)
+    joint_labels = np.ravel_multi_index(
+        tuple(labels[t] for t in range(n_tasks)),
+        dims=tuple(task_num_classes),
+    )
 
-        cov_gap = 100 * np.mean(np.abs(class_cov - (1 - alpha)))
-        taskwise_coverages.append(cov_gap)
+    covered = np.array([
+        all(labels[t][i] in predictions[t][i] for t in range(n_tasks))
+        for i in range(n_samples)
+    ])
 
-    return taskwise_coverages
+    class_gaps = []
+
+    for y in np.unique(joint_labels):
+        idxs = np.where(joint_labels == y)[0]
+        class_coverage = np.mean(covered[idxs])
+        class_gaps.append(abs(class_coverage - (1 - alpha)))
+
+    return 100 * float(np.mean(class_gaps))
+
+
+def compute_taskwise_covgap(
+    predictions: list[list[np.ndarray]],
+    labels: list[np.ndarray],
+    task_num_classes: list[int],
+    alpha: float,
+) -> np.ndarray:
+    """Compute classwise coverage gap independently for each task."""
+    return np.array(
+        [
+            compute_covgap(task_predictions, task_labels, num_classes, alpha)
+            for task_predictions, task_labels, num_classes in zip(
+                predictions,
+                labels,
+                task_num_classes,
+                strict=True,
+            )
+        ]
+    )
 
 
 def compute_covgap(
