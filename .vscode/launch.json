@@ -1,0 +1,302 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "SGVehicle / Hinge / HL-HL Cal",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "main",
+            "args": ["experiment", "experiments/sgvehicle/hinge/hl_hl_cal.yaml"],
+            "cwd": "${workspaceFolder}",
+            "env": {"PYTHONPATH": "${workspaceFolder}/src"},
+            "console": "integratedTerminal",
+            "justMyCode": true
+        },
+        {
+            "name": "SGVehicle / Hinge / HL-LL Cal",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "main",
+            "args": ["experiment", "experiments/sgvehicle/hinge/hl_ll_cal.yaml"],
+            "cwd": "${workspaceFolder}",
+            "env": {"PYTHONPATH": "${workspaceFolder}/src"},
+            "console": "integratedTerminal",
+            "justMyCode": true
+        },
+        {
+            "name": "SGVehicle / Hinge / LL-HL Cal",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "main",
+            "args": ["experiment", "experiments/sgvehicle/hinge/ll_hl_cal.yaml"],
+            "cwd": "${workspaceFolder}",
+            "env": {"PYTHONPATH": "${workspaceFolder}/src"},
+            "console": "integratedTerminal",
+            "justMyCode": true
+        },
+        {
+            "name": "SGVehicle / Hinge / LL-LL Cal",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "main",
+            "args": ["experiment", "experiments/sgvehicle/hinge/ll_ll_cal.yaml"],
+            "cwd": "${workspaceFolder}",
+            "env": {"PYTHONPATH": "${workspaceFolder}/src"},
+            "console": "integratedTerminal",
+            "justMyCode": true
+        },
+        {
+            "name": "SGVehicle / Margin / HL-HL Cal",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "main",
+            "args": ["experiment", "experiments/sgvehicle/margin/hl_hl_cal.yaml"],
+            "cwd": "${workspaceFolder}",
+            "env": {"PYTHONPATH": "${workspaceFolder}/src"},
+            "console": "integratedTerminal",
+            "justMyCode": true
+        },
+        {
+            "name": "SGVehicle / Margin / HL-LL Cal",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "main",
+            "args": ["experiment", "experiments/sgvehicle/margin/hl_ll_cal.yaml"],
+            "cwd": "${workspaceFolder}",
+            "env": {"PYTHONPATH": "${workspaceFolder}/src"},
+            "console": "integratedTerminal",
+            "justMyCode": true
+        },
+        {
+            "name": "SGVehicle / Margin / LL-HL Cal",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "main",
+            "args": ["experiment", "experiments/sgvehicle/margin/ll_hl_cal.yaml"],
+            "cwd": "${workspaceFolder}",
+            "env": {"PYTHONPATH": "${workspaceFolder}/src"},
+            "console": "integratedTerminal",
+            "justMyCode": true
+        },
+        {
+            "name": "SGVehicle / Margin / LL-LL Cal",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "main",
+            "args": ["experiment", "experiments/sgvehicle/margin/ll_ll_cal.yaml"],
+            "cwd": "${workspaceFolder}",
+            "env": {"PYTHONPATH": "${workspaceFolder}/src"},
+            "console": "integratedTerminal",
+            "justMyCode": true
+        },
+        {
+            "name": "SGVehicle / PIP / HL-HL Cal",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "main",
+            "args": ["experiment", "experiments/sgvehicle/pip/hl_hl_cal.yaml"],
+            "cwd": "${workspaceFolder}",
+            "env": {"PYTHONPATH": "${workspaceFolder}/src"},
+            "console": "integratedTerminal",
+            "justMyCode": true
+        },
+        {
+            "name": "SGVehicle / PIP / HL-LL Cal",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "main",
+            "args": ["experiment", "experiments/sgvehicle/pip/hl_ll_cal.yaml"],
+            "cwd": "${workspaceFolder}",
+            "env": {"PYTHONPATH": "${workspaceFolder}/src"},
+            "console": "integratedTerminal",
+            "justMyCode": true
+        },
+        {
+            "name": "SGVehicle / PIP / LL-HL Cal",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "main",
+            "args": ["experiment", "experiments/sgvehicle/pip/ll_hl_cal.yaml"],
+            "cwd": "${workspaceFolder}",
+            "env": {"PYTHONPATH": "${workspaceFolder}/src"},
+            "console": "integratedTerminal",
+            "justMyCode": true
+        },
+        {
+            "name": "SGVehicle / PIP / LL-LL Cal",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "main",
+            "args": ["experiment", "experiments/sgvehicle/pip/ll_ll_cal.yaml"],
+            "cwd": "${workspaceFolder}",
+            "env": {"PYTHONPATH": "${workspaceFolder}/src"},
+            "console": "integratedTerminal",
+            "justMyCode": true
+        },
+        {
+            "name": "UTKFace / Hinge / HL-HL Cal",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "main",
+            "args": ["experiment", "experiments/utkface/hinge/hl_hl_cal.yaml"],
+            "cwd": "${workspaceFolder}",
+            "env": {"PYTHONPATH": "${workspaceFolder}/src"},
+            "console": "integratedTerminal",
+            "justMyCode": true
+        },
+        {
+            "name": "UTKFace / Hinge / HL-LL Cal",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "main",
+            "args": ["experiment", "experiments/utkface/hinge/hl_ll_cal.yaml"],
+            "cwd": "${workspaceFolder}",
+            "env": {"PYTHONPATH": "${workspaceFolder}/src"},
+            "console": "integratedTerminal",
+            "justMyCode": true
+        },
+        {
+            "name": "UTKFace / Hinge / LL-HL Cal",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "main",
+            "args": ["experiment", "experiments/utkface/hinge/ll_hl_cal.yaml"],
+            "cwd": "${workspaceFolder}",
+            "env": {"PYTHONPATH": "${workspaceFolder}/src"},
+            "console": "integratedTerminal",
+            "justMyCode": true
+        },
+        {
+            "name": "UTKFace / Hinge / LL-LL Cal",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "main",
+            "args": ["experiment", "experiments/utkface/hinge/ll_ll_cal.yaml"],
+            "cwd": "${workspaceFolder}",
+            "env": {"PYTHONPATH": "${workspaceFolder}/src"},
+            "console": "integratedTerminal",
+            "justMyCode": true
+        },
+        {
+            "name": "UTKFace / Margin / HL-HL Cal",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "main",
+            "args": ["experiment", "experiments/utkface/margin/hl_hl_cal.yaml"],
+            "cwd": "${workspaceFolder}",
+            "env": {"PYTHONPATH": "${workspaceFolder}/src"},
+            "console": "integratedTerminal",
+            "justMyCode": true
+        },
+        {
+            "name": "UTKFace / Margin / HL-LL Cal",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "main",
+            "args": ["experiment", "experiments/utkface/margin/hl_ll_cal.yaml"],
+            "cwd": "${workspaceFolder}",
+            "env": {"PYTHONPATH": "${workspaceFolder}/src"},
+            "console": "integratedTerminal",
+            "justMyCode": true
+        },
+        {
+            "name": "UTKFace / Margin / LL-HL Cal",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "main",
+            "args": ["experiment", "experiments/utkface/margin/ll_hl_cal.yaml"],
+            "cwd": "${workspaceFolder}",
+            "env": {"PYTHONPATH": "${workspaceFolder}/src"},
+            "console": "integratedTerminal",
+            "justMyCode": true
+        },
+        {
+            "name": "UTKFace / Margin / LL-LL Cal",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "main",
+            "args": ["experiment", "experiments/utkface/margin/ll_ll_cal.yaml"],
+            "cwd": "${workspaceFolder}",
+            "env": {"PYTHONPATH": "${workspaceFolder}/src"},
+            "console": "integratedTerminal",
+            "justMyCode": true
+        },
+        {
+            "name": "UTKFace / PIP / HL-HL Cal",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "main",
+            "args": ["experiment", "experiments/utkface/pip/hl_hl_cal.yaml"],
+            "cwd": "${workspaceFolder}",
+            "env": {"PYTHONPATH": "${workspaceFolder}/src"},
+            "console": "integratedTerminal",
+            "justMyCode": true
+        },
+        {
+            "name": "UTKFace / PIP / HL-LL Cal",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "main",
+            "args": ["experiment", "experiments/utkface/pip/hl_ll_cal.yaml"],
+            "cwd": "${workspaceFolder}",
+            "env": {"PYTHONPATH": "${workspaceFolder}/src"},
+            "console": "integratedTerminal",
+            "justMyCode": true
+        },
+        {
+            "name": "UTKFace / PIP / LL-HL Cal",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "main",
+            "args": ["experiment", "experiments/utkface/pip/ll_hl_cal.yaml"],
+            "cwd": "${workspaceFolder}",
+            "env": {"PYTHONPATH": "${workspaceFolder}/src"},
+            "console": "integratedTerminal",
+            "justMyCode": true
+        },
+        {
+            "name": "UTKFace / PIP / LL-LL Cal",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "main",
+            "args": ["experiment", "experiments/utkface/pip/ll_ll_cal.yaml"],
+            "cwd": "${workspaceFolder}",
+            "env": {"PYTHONPATH": "${workspaceFolder}/src"},
+            "console": "integratedTerminal",
+            "justMyCode": true
+        },
+        {
+            "name": "Experiments: SGVehicle (Sequential)",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "main",
+            "args": ["experiment_directory", "experiments/sgvehicle"],
+            "cwd": "${workspaceFolder}",
+            "env": {"PYTHONPATH": "${workspaceFolder}/src"},
+            "console": "integratedTerminal",
+            "justMyCode": true
+        },
+        {
+            "name": "Experiments: UTKFace (Sequential)",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "main",
+            "args": ["experiment_directory", "experiments/utkface"],
+            "cwd": "${workspaceFolder}",
+            "env": {"PYTHONPATH": "${workspaceFolder}/src"},
+            "console": "integratedTerminal",
+            "justMyCode": true
+        },
+        {
+            "name": "Experiments: All (Sequential)",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "main",
+            "args": ["experiment_directory", "experiments"],
+            "cwd": "${workspaceFolder}",
+            "env": {"PYTHONPATH": "${workspaceFolder}/src"},
+            "console": "integratedTerminal",
+            "justMyCode": true
+        }
+    ]
+}
