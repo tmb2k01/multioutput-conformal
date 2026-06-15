@@ -297,6 +297,47 @@
             "env": {"PYTHONPATH": "${workspaceFolder}/src"},
             "console": "integratedTerminal",
             "justMyCode": true
+        },
+        {
+            "name": "Train Only",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "main",
+            "args": ["train", "${input:experimentConfig}"],
+            "cwd": "${workspaceFolder}",
+            "env": {"PYTHONPATH": "${workspaceFolder}/src"},
+            "console": "integratedTerminal",
+            "justMyCode": true
+        },
+        {
+            "name": "Calibration Only",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "main",
+            "args": ["calibrate", "${input:experimentConfig}"],
+            "cwd": "${workspaceFolder}",
+            "env": {"PYTHONPATH": "${workspaceFolder}/src"},
+            "console": "integratedTerminal",
+            "justMyCode": true
+        },
+        {
+            "name": "Web Service",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "main",
+            "args": ["web_service", "--config", "static/ws-config.json"],
+            "cwd": "${workspaceFolder}",
+            "env": {"PYTHONPATH": "${workspaceFolder}/src"},
+            "console": "integratedTerminal",
+            "justMyCode": true
+        }
+    ],
+    "inputs": [
+        {
+            "id": "experimentConfig",
+            "type": "promptString",
+            "description": "Experiment YAML path",
+            "default": "experiments/utkface/hinge/hl_hl_cal.yaml"
         }
     ]
 }
