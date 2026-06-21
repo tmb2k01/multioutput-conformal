@@ -1,0 +1,5 @@
+dataset,calibration_level,overall_covgap_mean_mean,overall_covgap_mean_std,n
+SGVehicle,Joint,4.426827777777778,0.3782730321210667,18
+SGVehicle,Task-wise,6.841493333333333,0.865011939297046,30
+UTKFace,Joint,2.39455,1.3306905461849057,18
+UTKFace,Task-wise,6.73729,2.059770607808817,30

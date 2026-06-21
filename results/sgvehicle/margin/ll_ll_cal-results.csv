@@ -1,0 +1,4 @@
+"('Experience', '')","('Overall Eff', 'mean')","('Overall Eff', 'std')","('Overall Inf', 'mean')","('Overall Inf', 'std')","('Overall CovGap', 'mean')","('Overall CovGap', 'std')","('0 - Task Eff', 'mean')","('0 - Task Eff', 'std')","('0 - Task Inf', 'mean')","('0 - Task Inf', 'std')","('0 - Task CovGap', 'mean')","('0 - Task CovGap', 'std')","('1 - Task Eff', 'mean')","('1 - Task Eff', 'std')","('1 - Task Inf', 'mean')","('1 - Task Inf', 'std')","('1 - Task CovGap', 'mean')","('1 - Task CovGap', 'std')"
+ll_llcal_scp_global,31.4722,0.8690,0.5569,0.0063,4.5333,0.3639,3.6991,0.0754,0.6428,0.0070,2.7582,0.1114,3.4730,0.0652,0.6443,0.0070,2.8802,0.1672
+ll_llcal_ccp_class,75.7355,0.7852,0.0000,0.0000,4.1292,0.1784,12.0000,0.0000,0.0000,0.0000,5.0000,0.0000,9.0128,0.0767,0.0000,0.0000,4.5601,0.0994
+ll_llcal_ccp_global_cluster,41.4796,1.6267,0.2307,0.0043,4.4270,0.3415,7.2488,0.1898,0.2327,0.0043,4.1941,0.1048,6.0184,0.1432,0.2344,0.0063,3.6470,0.1779
