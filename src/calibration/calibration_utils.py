@@ -7,7 +7,7 @@ from sklearn.cluster import AgglomerativeClustering, KMeans
 from calibration.clustering_utils import (
     embed_all_classes,
     embed_all_tasks,
-    get_clustering_parameters,
+    estimate_num_clusters,
 )
 
 
@@ -234,13 +234,12 @@ def compute_qhat_ccp_task_cluster(
             num_remaining_classes = np.sum(np.array(cts) >= n_min)
 
             # Compute clustering params *per task*
-            n_clustering, num_clusters = get_clustering_parameters(
+            num_clusters = estimate_num_clusters(
                 num_remaining_classes, n_min
             )
 
             print(
-                f"[Task {task_id}] n_clustering={n_clustering}, "
-                f"num_clusters={num_clusters}"
+                f"[Task {task_id}] num_clusters={num_clusters}"
             )
 
             num_clusters_per_task.append(num_clusters)

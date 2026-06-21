@@ -118,10 +118,71 @@ def _compute_low_level_metrics(
     task_num_classes: list[int],
     alpha: float,
 ) -> dict[str, Any]:
+        
+    def decode_joint_prediction_sets(
+        predictions: list[np.ndarray],
+        task_num_classes: list[int],
+    ) -> list[list[np.ndarray]]:
+        task_predictions: list[list[np.ndarray]] = [
+            [] for _ in task_num_classes
+        ]
+
+        for pred_set in predictions:
+            pred_set = np.asarray(pred_set)
+
+            decoded = []
+            x = pred_set.copy()
+
+            for num_classes in reversed(task_num_classes):
+                decoded.append(x % num_classes)
+                x = x // num_classes
+
+            decoded = decoded[::-1]
+
+            for task_idx, task_labels in enumerate(decoded):
+                task_predictions[task_idx].append(np.unique(task_labels))
+
+        return task_predictions
+        
+    def decode_joint_labels(
+        joint_labels: np.ndarray,
+        task_num_classes: list[int],
+    ) -> list[np.ndarray]:
+        x = np.asarray(joint_labels).copy()
+
+        decoded = []
+        for num_classes in reversed(task_num_classes):
+            decoded.append(x % num_classes)
+            x = x // num_classes
+
+        decoded = decoded[::-1]
+
+        return [np.asarray(task_labels) for task_labels in decoded]
+    
+    task_prediction = decode_joint_prediction_sets(
+        predictions=prediction,
+        task_num_classes=task_num_classes,
+    )
+
+    task_y_trues = decode_joint_labels(
+        joint_labels=y_trues,
+        task_num_classes=task_num_classes,
+    )
+
     return {
         "efficiency": compute_efficiency(prediction),
         "informativeness": compute_informativeness(prediction),
         "covgap": compute_covgap(prediction, y_trues, int(np.prod(task_num_classes)), alpha),
+        "taskwise_efficiency": np.asarray(compute_taskwise_efficiency(task_prediction)),
+        "taskwise_informativeness": np.asarray(compute_taskwise_informativeness(task_prediction)),
+        "taskwise_covgap": np.asarray(
+            compute_taskwise_covgap(
+                task_prediction,
+                task_y_trues,
+                task_num_classes,
+                alpha,
+            )
+        ),
     }
 
 def _summarize_high_level(
@@ -168,12 +229,17 @@ def _summarize_high_level(
 def _summarize_low_level(
     experience_name: str,
     all_metrics: list[dict[str, Any]],
+    n_tasks: int,
 ) -> dict[tuple[str, str], float | str]:
     efficiency = np.array([m["efficiency"] for m in all_metrics])
     informativeness = np.array([m["informativeness"] for m in all_metrics])
     covgap = np.array([m["covgap"] for m in all_metrics])
 
-    return {
+    taskwise_eff = np.array([m["taskwise_efficiency"] for m in all_metrics])
+    taskwise_info = np.array([m["taskwise_informativeness"] for m in all_metrics])
+    taskwise_covgap = np.array([m["taskwise_covgap"] for m in all_metrics])
+
+    results = {
         ("Experience", ""): experience_name,
 
         ("Overall Eff", "mean"): float(np.mean(efficiency)),
@@ -185,6 +251,18 @@ def _summarize_low_level(
         ("Overall CovGap", "mean"): float(np.mean(covgap)),
         ("Overall CovGap", "std"): float(np.std(covgap)),
     }
+
+    for i in range(n_tasks):
+        results[(f"{i} - Task Eff", "mean")] = float(np.mean(taskwise_eff[:, i]))
+        results[(f"{i} - Task Eff", "std")] = float(np.std(taskwise_eff[:, i]))
+
+        results[(f"{i} - Task Inf", "mean")] = float(np.mean(taskwise_info[:, i]))
+        results[(f"{i} - Task Inf", "std")] = float(np.std(taskwise_info[:, i]))
+
+        results[(f"{i} - Task CovGap", "mean")] = float(np.mean(taskwise_covgap[:, i]))
+        results[(f"{i} - Task CovGap", "std")] = float(np.std(taskwise_covgap[:, i]))
+
+    return results
 
 
 def run(exp: dict[str, Any]) -> dict[str, float]:
@@ -234,7 +312,7 @@ def run(exp: dict[str, Any]) -> dict[str, float]:
     if cal_level == "high":
         return _summarize_high_level(exp["name"], all_metrics, n_tasks)
 
-    return _summarize_low_level(exp["name"], all_metrics)
+    return _summarize_low_level(exp["name"], all_metrics, n_tasks)
 
 def _load_config(config_path: str) -> dict[str, Any]:
     with open(config_path) as f:
