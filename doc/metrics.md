@@ -17,6 +17,16 @@ This document describes the various metrics used to evaluate the performance of 
 
 ## Conformal Prediction Metrics
 
+### Coverage
+- Fraction of test samples whose true label belongs to the prediction set (0–1).
+- An empty prediction set counts as uncovered.
+- Per-task coverage evaluates each task independently. Overall coverage requires
+  every true task label to be covered for high-level predictions, or the true joint
+  label to belong to the joint prediction set for low-level predictions.
+- Experiment CSVs report `Overall Coverage` and `<task index> - Task Coverage`,
+  each with the mean and population standard deviation across experiment runs
+  (`max_iter`), matching the other metrics. A single run has standard deviation 0.
+
 ### Coverage Gap (CovGap)
 - The reported coverage metric is the **coverage gap**: the deviation of the
   empirical class-conditional coverage from the target level (1 - α).

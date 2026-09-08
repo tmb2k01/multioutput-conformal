@@ -2,6 +2,34 @@
 import numpy as np
 
 
+def compute_coverage(
+    predictions: list[np.ndarray] | list[list[np.ndarray]],
+    labels: np.ndarray | list[np.ndarray],
+) -> float:
+    """Fraction covered; multi-task coverage requires every true task label."""
+    if isinstance(predictions[0], np.ndarray):
+        return float(np.mean([
+            label in pred for pred, label in zip(predictions, labels, strict=True)
+        ]))
+
+    task_covered = [
+        [label in pred for pred, label in zip(task_preds, task_labels, strict=True)]
+        for task_preds, task_labels in zip(predictions, labels, strict=True)
+    ]
+    return float(np.mean(np.all(task_covered, axis=0)))
+
+
+def compute_taskwise_coverage(
+    predictions: list[list[np.ndarray]],
+    labels: list[np.ndarray],
+) -> np.ndarray:
+    """Compute empirical coverage independently for each task."""
+    return np.array([
+        compute_coverage(task_preds, task_labels)
+        for task_preds, task_labels in zip(predictions, labels, strict=True)
+    ])
+
+
 def compute_informativeness(predictions: list[np.ndarray] | list[list[np.ndarray]]) -> float:
     """
     Informativeness = fraction of samples where the prediction set is singleton.
