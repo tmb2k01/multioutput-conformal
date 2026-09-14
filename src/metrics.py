@@ -30,6 +30,14 @@ def compute_taskwise_coverage(
     ])
 
 
+def compute_mean_task_coverage(
+    predictions: list[list[np.ndarray]],
+    labels: list[np.ndarray],
+) -> float:
+    """Average empirical coverage across tasks."""
+    return float(np.mean(compute_taskwise_coverage(predictions, labels)))
+
+
 def compute_informativeness(predictions: list[np.ndarray] | list[list[np.ndarray]]) -> float:
     """
     Informativeness = fraction of samples where the prediction set is singleton.

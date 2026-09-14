@@ -20,12 +20,19 @@ This document describes the various metrics used to evaluate the performance of 
 ### Coverage
 - Fraction of test samples whose true label belongs to the prediction set (0–1).
 - An empty prediction set counts as uncovered.
-- Per-task coverage evaluates each task independently. Overall coverage requires
-  every true task label to be covered for high-level predictions, or the true joint
-  label to belong to the joint prediction set for low-level predictions.
-- Experiment CSVs report `Overall Coverage` and `<task index> - Task Coverage`,
-  each with the mean and population standard deviation across experiment runs
-  (`max_iter`), matching the other metrics. A single run has standard deviation 0.
+- Per-task coverage evaluates each task independently.
+- For high-level predictions, `Overall Coverage` is joint coverage: the stricter
+  fraction of samples where every true task label is covered at once. With two
+  tasks that are each near 95% coverage, this value can naturally be near 90%.
+- Experiment CSVs also report `Taskwise Coverage`: the average of the per-task
+  empirical coverages, so it is directly comparable with the conformal target
+  level `1 - α`.
+- For low-level predictions, `Overall Coverage` is computed in the joint label
+  space: the true joint label must belong to the joint prediction set.
+- Experiment CSVs report `Overall Coverage`, `Taskwise Coverage`, and
+  `<task index> - Task Coverage`, each with the mean and population standard
+  deviation across experiment runs (`max_iter`), matching the other metrics.
+  A single run has standard deviation 0.
 
 ### Coverage Gap (CovGap)
 - The reported coverage metric is the **coverage gap**: the deviation of the

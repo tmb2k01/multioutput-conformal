@@ -19,6 +19,7 @@ from metrics import (
     compute_efficiency,
     compute_informativeness,
     compute_joint_classwise_covgap,
+    compute_mean_task_coverage,
     compute_taskwise_coverage,
     compute_taskwise_covgap,
     compute_taskwise_efficiency,
@@ -96,6 +97,7 @@ def _compute_high_level_metrics(
 ) -> dict[str, Any]:
     return {
         "coverage": compute_coverage(prediction, y_trues),
+        "mean_task_coverage": compute_mean_task_coverage(prediction, y_trues),
         "efficiency": compute_efficiency(prediction),
         "informativeness": compute_informativeness(prediction),
         "taskwise_coverage": compute_taskwise_coverage(prediction, y_trues),
@@ -178,6 +180,7 @@ def _compute_low_level_metrics(
         "efficiency": compute_efficiency(prediction),
         "informativeness": compute_informativeness(prediction),
         "covgap": compute_covgap(prediction, y_trues, int(np.prod(task_num_classes)), alpha),
+        "mean_task_coverage": compute_mean_task_coverage(task_prediction, task_y_trues),
         "taskwise_coverage": compute_taskwise_coverage(task_prediction, task_y_trues),
         "taskwise_efficiency": np.asarray(compute_taskwise_efficiency(task_prediction)),
         "taskwise_informativeness": np.asarray(compute_taskwise_informativeness(task_prediction)),
@@ -200,6 +203,7 @@ def _summarize_high_level(
     overall_info = np.array([m["informativeness"] for m in all_metrics])
 
     coverage = np.array([m["coverage"] for m in all_metrics])
+    mean_task_coverage = np.array([m["mean_task_coverage"] for m in all_metrics])
     taskwise_coverage = np.array([m["taskwise_coverage"] for m in all_metrics])
 
     taskwise_eff = np.array([m["taskwise_efficiency"] for m in all_metrics])
@@ -214,6 +218,9 @@ def _summarize_high_level(
 
         ("Overall Coverage", "mean"): float(np.mean(coverage)),
         ("Overall Coverage", "std"): float(np.std(coverage)),
+
+        ("Taskwise Coverage", "mean"): float(np.mean(mean_task_coverage)),
+        ("Taskwise Coverage", "std"): float(np.std(mean_task_coverage)),
 
         ("Overall Eff", "mean"): float(np.mean(overall_eff)),
         ("Overall Eff", "std"): float(np.std(overall_eff)),
@@ -251,6 +258,7 @@ def _summarize_low_level(
     covgap = np.array([m["covgap"] for m in all_metrics])
 
     coverage = np.array([m["coverage"] for m in all_metrics])
+    mean_task_coverage = np.array([m["mean_task_coverage"] for m in all_metrics])
     taskwise_coverage = np.array([m["taskwise_coverage"] for m in all_metrics])
 
     taskwise_eff = np.array([m["taskwise_efficiency"] for m in all_metrics])
@@ -262,6 +270,9 @@ def _summarize_low_level(
 
         ("Overall Coverage", "mean"): float(np.mean(coverage)),
         ("Overall Coverage", "std"): float(np.std(coverage)),
+
+        ("Taskwise Coverage", "mean"): float(np.mean(mean_task_coverage)),
+        ("Taskwise Coverage", "std"): float(np.std(mean_task_coverage)),
 
         ("Overall Eff", "mean"): float(np.mean(efficiency)),
         ("Overall Eff", "std"): float(np.std(efficiency)),
