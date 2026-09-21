@@ -1,130 +1,170 @@
-# Conformal prediction with task-wise calibration in disentangled framework for multi-output image classification
+# Conformal prediction with task-wise calibration in a disentangled framework for multi-output image classification
 
-## Project Overview
+This repository contains the reproducibility package for the article **Conformal prediction with task-wise calibration in a disentangled framework for multi-output image classification**. It implements the training, calibration, evaluation, and demonstration code used to compare conformal prediction strategies for two-output image classification.
 
-This repository contains the code and experimental framework for my master's thesis on **Implementation of Multi-Output Classification with Clustered Conformal Prediction**, aiming to enhance the reliability of structured prediction tasks. The focus is on quantifying uncertainty in predictions using conformal methods, particularly in the presence of output dependencies, and evaluating their effectiveness through reproducible experiments.
+The experiments study how the choice of model representation and calibration granularity affects conformal prediction sets. A low-level model treats each output combination as one joint class; a high-level model uses a shared image encoder with one classifier head per task. Connectors allow either model representation to be calibrated in the joint label space or in the task-wise label space.
 
-The project addresses the following key areas:
+## What is implemented
 
-- **Multi-output classification**: Tackling problems where each input is associated with multiple interdependent labels.
-- **Clustered conformal prediction**: Improving prediction sets by accounting for structure within output spaces.
+- **Datasets:** SGVehicle (`Color`, `Type`) and UTKFace (`Gender`, `Race`).
+- **Model levels:** `LowLevelModel` for joint labels and `HighLevelModel` for task-wise labels.
+- **Calibration levels:** `LowLevelCalibrator` for the joint label space and `HighLevelCalibrator` for per-task calibration.
+- **Nonconformity scores:** `hinge`, `margin`, and `pip`.
+- **Conformal predictors:** global standard CP, task-wise standard CP, classwise CP, global clustered CP, and task-wise clustered CP where the selected calibration level supports them.
+- **Evaluation outputs:** coverage, task-wise coverage, efficiency, informativeness, and CovGap metrics.
 
-## Documentation
+The full experiment matrix is encoded under `experiments/{utkface,sgvehicle}/{hinge,margin,pip}/`. Each filename describes the model and calibration levels:
 
-For detailed information about specific components, refer to the following documentation:
+- `ll_ll_cal.yaml`: low-level model, low-level calibration.
+- `ll_hl_cal.yaml`: low-level model, high-level calibration.
+- `hl_ll_cal.yaml`: high-level model, low-level calibration.
+- `hl_hl_cal.yaml`: high-level model, high-level calibration.
 
-- [Data Acquisition](doc/data-acquisition.md): Downloading, organizing, and splitting the dataset for experiments.
-- [Dockerization Overview](doc/docker-overview.md): Container layout, volume mounts, and configurable environment variables.
-- [Docker Workflows](doc/docker-workflows.md): Step-by-step instructions for building the image and running tasks in Docker.
-- [Model Definition](doc/model-definition.md): Architecture and implementation details of the models.
-- [Conformal Prediction](doc/conformal-prediction.md): Overview of the conformal prediction methodology.
-- [Metrics](doc/metrics.md): Evaluation metrics and performance analysis.
-- [Web Interface](doc/web-interface.md): Guide to using the web-based prediction interface.
+## Repository layout
 
-## How to Start
+- `src/`: implementation code.
+- `src/main.py`: CLI entry point for experiments, training, calibration, and the web service.
+- `src/core/`: model definitions, calibrators, connectors, predictor wrapper, and artifact IO.
+- `src/calibration/`: nonconformity scores and threshold computation.
+- `src/data/`: dataset and data-module logic.
+- `experiments/`: YAML configurations for all dataset, score, model-level, and calibration-level combinations.
+- `results/`: per-configuration CSV results and workbook summaries.
+- `notebooks/`: exploratory checks and result aggregation notebooks.
+- `scripts/`: data preparation and Docker helper scripts.
+- `doc/`: supporting implementation notes.
+- `static/`: web-service configuration and styles.
 
-### Without Docker
+## Environment
 
-- **Prerequisites:** Python 3.12+, `pip`, and Git.
-- **Clone the repository:**
+Use Python 3.12 or newer for local runs.
 
-  ```bash
-  git clone https://github.com/tmb2k01/masters-thesis.git
-  cd masters-thesis
-  ```
+```bash
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+```
 
-- **(Recommended) Create a virtual environment:**
+All local commands below are intended to be run from the repository root with `src` on `PYTHONPATH`:
 
-  ```bash
-  python3 -m venv venv
-  source venv/bin/activate  # On Windows: venv\Scripts\activate
-  ```
+```bash
+export PYTHONPATH=src
+```
 
-- **Install dependencies:**
+Weights & Biases logging is enabled only when `.wandb_api_key` contains a valid key. Without that file, PyTorch Lightning falls back to its default local logger.
 
-  ```bash
-  pip install -r requirements.txt
-  ```
+## Data preparation
 
-- **Prepare datasets locally:**
+Prepare both datasets and the experiment splits with:
 
-  ```bash
-  bash scripts/prepare-data.sh
-  ```
+```bash
+bash scripts/prepare-data.sh
+```
 
-- **Run a workflow** (the CLI exposes one subcommand per task; run from `src/`,
-  i.e. with `PYTHONPATH=src`):
+The script downloads SGVehicle and UTKFace archives, extracts them into `data/`, and runs the preprocessing scripts used by the experiment configs.
 
-  ```bash
-  python3 -m main experiment experiments/utkface/hinge/ll_ll_cal.yaml  # full run + metrics
-  python3 -m main train experiments/utkface/hinge/ll_ll_cal.yaml       # train model only
-  python3 -m main calibrate experiments/utkface/hinge/ll_ll_cal.yaml   # calibrate only
-  ```
+## Running experiments locally
 
-  Store your Weights & Biases API key in `.wandb_api_key` (or point the
-  `WANDB_API_KEY_FILE` environment variable elsewhere) to enable experiment tracking.
+The article configs are calibration/evaluation configs: by default they expect an already trained checkpoint in the configured `artifact_root`, then calibrate and evaluate each conformal-prediction variant.
 
-- **Serve the web interface:**
+Train the four base model checkpoints once:
 
-  ```bash
-  python3 -m main web_service              # uses static/ws-config.json by default
-  python3 -m main web_service --config path/to/ws-config.json
-  ```
+```bash
+PYTHONPATH=src python3 -m main train experiments/utkface/hinge/ll_ll_cal.yaml
+PYTHONPATH=src python3 -m main train experiments/utkface/hinge/hl_hl_cal.yaml
+PYTHONPATH=src python3 -m main train experiments/sgvehicle/hinge/ll_ll_cal.yaml
+PYTHONPATH=src python3 -m main train experiments/sgvehicle/hinge/hl_hl_cal.yaml
+```
 
-  The Gradio UI listens on `http://localhost:7860` by default. Set `ARTIFACTS_ROOT`
-  to point at the directory holding the trained artifacts.
+The selected nonconformity score does not affect training, so one low-level and one high-level checkpoint per dataset can be reused across `hinge`, `margin`, and `pip` calibrations.
 
-### With Docker
+Run one configuration:
 
-- **Prerequisites:** Docker (24+) and, optionally, the NVIDIA Container Toolkit for GPU support.
-- **Build the image:**
+```bash
+PYTHONPATH=src python3 -m main experiment experiments/utkface/hinge/ll_ll_cal.yaml
+```
 
-  ```bash
-  scripts/docker-build.sh
-  ```
+Run every YAML below a directory:
 
-- **Prepare data inside the container (optional):**
+```bash
+PYTHONPATH=src python3 -m main experiment_directory experiments/utkface
+PYTHONPATH=src python3 -m main experiment_directory experiments/sgvehicle
+```
 
-  ```bash
-  scripts/docker-prepare-data.sh
-  ```
+Useful single-purpose commands:
 
-- **Launch training / calibration:**
+```bash
+PYTHONPATH=src python3 -m main train experiments/utkface/hinge/ll_ll_cal.yaml
+PYTHONPATH=src python3 -m main calibrate experiments/utkface/hinge/ll_ll_cal.yaml
+```
 
-  ```bash
-  scripts/docker-run-train.sh [HOST_DATA_DIR] [HOST_ARTIFACTS_DIR] [CONFIG]
-  scripts/docker-run-calibrate.sh [HOST_DATA_DIR] [HOST_ARTIFACTS_DIR] [CONFIG]
-  ```
+## Artifacts and results
 
-  `CONFIG` defaults to `experiments/utkface/hinge/ll_ll_cal.yaml`. Override host
-  directories or enable GPU support by exporting `DOCKER_RUN_ARGS`,
-  `RUN_AS_HOST_UID`, and the other environment variables documented in
-  `doc/docker-workflows.md`.
+Training writes checkpoints under the configured model artifact directory:
 
-- **Start the web interface:**
+```text
+artifacts/UTKFace/ll_model/models/low-model.ckpt
+artifacts/UTKFace/hl_model/models/high-model.ckpt
+artifacts/SGVehicle/ll_model/models/low-model.ckpt
+artifacts/SGVehicle/hl_model/models/high-model.ckpt
+```
 
-  ```bash
-  scripts/docker-run-web.sh [HOST_ARTIFACTS_DIR]
-  ```
+Calibration writes thresholds below the same artifact root:
 
-  Set `PORT=7860` (or any free port) to control the host binding. Artifacts are
-  read from the mounted `artifacts` directory (`ARTIFACTS_ROOT=/app/artifacts`).
+```text
+artifacts/<dataset>/<level>_model/thresholds/<calibration-level>/<score>/<cp-type>/alpha_0.05.json
+```
 
-For detailed explanations of the container layout, volume mounts, and environment
-variables, consult the Docker documentation linked above.
+Experiment CSVs are written to:
 
-## Project Structure
+```text
+results/<dataset>/<score>/<config-name>-results.csv
+```
 
-- `src/`: Source code for the implementation
-  - `main.py`: CLI entrypoint (`experiment`, `train`, `calibrate`, `web_service`)
-  - `experiment.py`: Experiment, training, and calibration orchestration
-  - `metrics.py`: Conformal-prediction evaluation metrics
-  - `web_service.py`: Gradio web interface
-  - `core/`: Models, calibrators, the `ConformalPredictor`, and supporting types
-  - `calibration/`: Nonconformity scores, conformal prediction, and calibration utilities
-  - `data/`: Dataset handling and preprocessing
-- `experiments/`: Experiment/train/calibrate YAML configs
-- `scripts/`: Data preparation and Docker helper scripts
-- `notebooks/`: Jupyter notebooks for analysis and experiments
-- `doc/`: Detailed documentation
-- `static/`: Configuration files and web assets (`ws-config.json`, `styles.css`)
+The checked-in `results/*.xlsx` files provide workbook summaries for the article tables, and `notebooks/multioutput_cp_aggregation.ipynb` contains the aggregation workflow.
+
+## Docker workflow
+
+Build the image:
+
+```bash
+scripts/docker-build.sh
+```
+
+Prepare data in Docker:
+
+```bash
+scripts/docker-prepare-data.sh
+```
+
+Run training or calibration:
+
+```bash
+scripts/docker-run-train.sh [HOST_DATA_DIR] [HOST_ARTIFACTS_DIR] [CONFIG]
+scripts/docker-run-calibrate.sh [HOST_DATA_DIR] [HOST_ARTIFACTS_DIR] [CONFIG]
+```
+
+The scripts default to `./data`, `./artifacts`, and `experiments/utkface/hinge/ll_ll_cal.yaml`. See `doc/docker-workflows.md` for environment variables such as `IMAGE_TAG`, `DOCKER_RUN_ARGS`, `RUN_AS_HOST_UID`, and `WANDB_KEY_FILE`.
+
+## Web demo
+
+After checkpoints and thresholds have been generated, launch the Gradio interface:
+
+```bash
+PYTHONPATH=src python3 -m main web_service
+```
+
+The UI listens on `http://localhost:7860` by default and reads `static/ws-config.json`. In Docker:
+
+```bash
+PORT=7860 scripts/docker-run-web.sh [HOST_ARTIFACTS_DIR]
+```
+
+## Additional documentation
+
+- [Data acquisition](doc/data-acquisition.md)
+- [Docker overview](doc/docker-overview.md)
+- [Docker workflows](doc/docker-workflows.md)
+- [Model definition](doc/model-definition.md)
+- [Conformal prediction](doc/conformal-prediction.md)
+- [Metrics](doc/metrics.md)
+- [Web interface](doc/web-interface.md)

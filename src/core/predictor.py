@@ -248,8 +248,7 @@ class ConformalPredictor:
     def _make_training_trainer(
         self, max_epochs: int
     ) -> tuple[pl.Trainer, pl.callbacks.ModelCheckpoint]:
-        level_prefix = "hl" if self.model.level == "high" else "ll"
-        models_dir = self.artifacts_dir / f"{level_prefix}_model" / "models"
+        models_dir = self.artifacts_dir / "models"
         models_dir.mkdir(parents=True, exist_ok=True)
 
         ckpt_cb = pl.callbacks.ModelCheckpoint(

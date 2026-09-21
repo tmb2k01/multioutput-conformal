@@ -25,7 +25,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_CONFIG_PATH = PROJECT_ROOT / "static" / "ws-config.json"
 CONFIG = json.loads(DEFAULT_CONFIG_PATH.read_text(encoding="utf-8"))
 
-ARTIFACTS_ROOT = os.environ.get("ARTIFACTS_ROOT", "./artifacts/artifacts")
+ARTIFACTS_ROOT = os.environ.get("ARTIFACTS_ROOT", "./artifacts")
 
 # Friendly CP names -> calibration_fn_key used by the calibrators / threshold files.
 CP_TYPE_MAPPING = {
