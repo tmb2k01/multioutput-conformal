@@ -1,4 +1,4 @@
-# Master's Thesis – Multi-Output Classification with Clustered Conformal Prediction
+# Conformal prediction with task-wise calibration in disentangled framework for multi-output image classification
 
 ## Project Overview
 

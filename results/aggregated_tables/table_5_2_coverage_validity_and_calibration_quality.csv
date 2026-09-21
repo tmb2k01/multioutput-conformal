@@ -1,5 +1,0 @@
-method,model_architecture,calibration_level,overall_covgap_mean_mean,overall_covgap_mean_std,n
-JJ,Joint-output,Joint,3.43185,1.5011220137930557,18
-JT,Joint-output,Task-wise,6.8106366666666664,1.6936179531900974,30
-TJ,Task-wise,Joint,3.3895277777777775,1.3586993117578452,18
-TT,Task-wise,Task-wise,6.7681466666666665,1.4585065625219313,30
